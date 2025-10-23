@@ -100,7 +100,7 @@ def get_embeddings(
         elif isinstance(chunks, str) and not key:
             # this is just a request for a query string embedding
             texts = [chunks]
-        elif len(chunks) > 0 and isinstance(chunks[0], str):
+        elif isinstance(chunks[0], str):
             logger.debug("Chunks are a list of strings.")
             texts = chunks  # type: ignore
         else:
