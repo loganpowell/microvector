@@ -199,8 +199,6 @@ jobs:
                   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
                   and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-                  ## [Unreleased]
-
                   EOF
                   fi
 
@@ -275,38 +273,16 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  # Extract just the new version section from CHANGELOG.md
                   VERSION="${{ github.event.release.tag_name }}"
 
-                  python << 'PYTHON_SCRIPT'
-                  import re
-                  from pathlib import Path
-
-                  version = "${VERSION}"
-                  changelog = Path('CHANGELOG.md').read_text()
-
-                  # Extract just this version's section
-                  pattern = rf'## \[{re.escape(version)}\].*?(?=\n## \[|\Z)'
-                  match = re.search(pattern, changelog, re.DOTALL)
-
-                  if match:
-                      section = match.group(0)
-                      Path('release_notes.md').write_text(section)
-                      print("✅ Extracted release notes")
-                  else:
-                      print("⚠️ Could not find version section in changelog")
-                      Path('release_notes.md').write_text("See CHANGELOG.md for details.")
-                  PYTHON_SCRIPT
+                  # Create changelog link
+                  # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
+                  VERSION_ANCHOR=$(echo "$VERSION" | sed 's/\.//g')
+                  CHANGELOG_DATE=$(date +%Y-%m-%d)
+                  CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}---${CHANGELOG_DATE}"
 
                   # Get current release notes
                   CURRENT_NOTES=$(gh release view "${{ github.event.release.tag_name }}" --json body --jq '.body')
-                  NEW_NOTES=$(cat release_notes.md)
-
-                  # Create changelog link
-                  VERSION="${{ github.event.release.tag_name }}"
-                  # Remove 'v' prefix if present for the anchor link
-                  VERSION_ANCHOR=$(echo "$VERSION" | sed 's/^v//')
-                  CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}"
 
                   # Create combined notes file with changelog link
                   cat > combined_notes.md << EOF
@@ -314,14 +290,11 @@ jobs:
 
                   ---
 
-                  ${NEW_NOTES}
+                  📝 **[View Release Changelog](${CHANGELOG_LINK})**
 
-                  ---
-
-                  📝 **[View Full Changelog](${CHANGELOG_LINK})**
                   EOF
 
                   # Update release with combined notes
                   gh release edit "${{ github.event.release.tag_name }}" --notes-file combined_notes.md
 
-                  echo "✅ Release notes updated with changelog"
+                  echo "✅ Release notes updated with changelog link"
