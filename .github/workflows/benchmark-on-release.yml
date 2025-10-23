@@ -14,18 +14,14 @@ jobs:
         name: Run Tests & Benchmarks
         runs-on: ubuntu-latest
 
-        strategy:
-            matrix:
-                python-version: ["3.11", "3.12"]
-
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Set up Python ${{ matrix.python-version }}
+            - name: Set up Python 3.11
               uses: actions/setup-python@v5
               with:
-                  python-version: ${{ matrix.python-version }}
+                  python-version: "3.11"
 
             - name: Install uv
               uses: astral-sh/setup-uv@v3
@@ -119,7 +115,7 @@ jobs:
             - name: Upload benchmark results
               uses: actions/upload-artifact@v4
               with:
-                  name: benchmark-results-python-${{ matrix.python-version }}
+                  name: benchmark-results-python-3.11
                   path: |
                       benchmark_metrics.json
                       benchmark_results.txt
@@ -168,7 +164,7 @@ jobs:
               if: github.event_name == 'release'
               uses: actions/upload-artifact@v4
               with:
-                  name: benchmark-changelog-summary-python-${{ matrix.python-version }}
+                  name: benchmark-changelog-summary-python-3.11
                   path: benchmark_changelog_summary.txt
                   retention-days: 7 # Short retention for changelog data
 
@@ -190,7 +186,7 @@ jobs:
                       metrics = {}
 
                   # Get environment info
-                  python_version = "${{ matrix.python-version }}"
+                  python_version = "3.11"
                   release_tag = "${{ github.event.release.tag_name }}" or "manual-run"
                   timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -293,7 +289,7 @@ jobs:
                   # Create a unique filename with timestamp and version
                   TIMESTAMP=$(date +%Y%m%d_%H%M%S)
                   VERSION="${{ github.event.release.tag_name }}"
-                  PYTHON_VER="${{ matrix.python-version }}"
+                  PYTHON_VER="3.11"
                   FILENAME=".benchmark-history/benchmark_${VERSION}_py${PYTHON_VER}_${TIMESTAMP}.json"
 
                   # Add metadata to metrics
@@ -308,7 +304,7 @@ jobs:
                   # Add metadata
                   metrics['metadata'] = {
                       'version': '${{ github.event.release.tag_name }}',
-                      'python_version': '${{ matrix.python-version }}',
+                      'python_version': '3.11',
                       'commit_sha': '${{ github.sha }}',
                       'timestamp': '${TIMESTAMP}',
                       'runner_os': 'ubuntu-latest'
@@ -329,7 +325,11 @@ jobs:
                   if git diff --staged --quiet; then
                     echo "No benchmark files to commit"
                   else
-                    git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python ${{ matrix.python-version }})"
+                    git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python 3.11)"
+                    
+                    # Fetch and rebase onto latest main (changelog workflow may have pushed)
+                    git fetch origin main
+                    git rebase origin/main
                     
                     # Push to main branch (we're in detached HEAD state from the release tag)
                     git push origin HEAD:main
