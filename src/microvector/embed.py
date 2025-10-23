@@ -13,13 +13,15 @@ from sentence_transformers import SentenceTransformer  # type: ignore
 FloatArray = NDArray[np.float32]
 
 logging.basicConfig(
-    format="%(levelname)-1s [%(filename)s:%(lineno)d] %(message)s",
+    format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
     datefmt="%Y-%m-%d:%H:%M:%S",
     level=logging.INFO,
     force=True,
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_BATCH_SIZE = 16
 
 
 def get_embeddings(
@@ -106,11 +108,17 @@ def get_embeddings(
 
     embeddings: list[FloatArray] = []
 
-    logger.debug(f"Encoding {len(texts)} chunks...")
-    if hasattr(embedding_model, "encode_document"):
-        embeddings = cast(list[FloatArray], embedding_model.encode_document(texts, normalize_embeddings=True))  # type: ignore[no-untyped-call]
-    else:
-        raise AttributeError("Model does not have encode_document method")
+    logger.debug(f"Splitting texts into batches of size {MAX_BATCH_SIZE}.")
+    batches = [
+        texts[i : i + MAX_BATCH_SIZE] for i in range(0, len(texts), MAX_BATCH_SIZE)
+    ]
+    embeddings = []
+
+    for batch in batches:
+        logger.debug(f"Encoding batch with size: {len(batch)}")
+        embeds = embedding_model.encode(batch, normalize_embeddings=True)
+        # print(f"embeds: {embeds}")
+        embeddings.extend(embeds)
     # print(f"embeds: {embeds}")
     logger.debug("Completed embeddings generation.")
     return embeddings

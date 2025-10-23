@@ -4,7 +4,7 @@ from microvector.cache import vector_cache
 from microvector.utils import SimilarityMetrics
 
 logging.basicConfig(
-    format="%(levelname)-1s [%(filename)s:%(lineno)d] %(message)s",
+    format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
     datefmt="%Y-%m-%d:%H:%M:%S",
     level=logging.INFO,
     force=True,
