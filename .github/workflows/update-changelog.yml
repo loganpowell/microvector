@@ -217,7 +217,7 @@ jobs:
 
           # Add release link to the changelog entry
           version = "${{ github.event.release.tag_name }}"
-          release_url = "https://github.com/${{ github.repository }}/releases/tag/${version}"
+          release_url = "https://github.com/${{ github.repository }}/releases/tag/{version}"
 
           # Modify the version header to include a link to the release
           # Pattern: ## [version] - date (or just ## version - date without brackets)
