@@ -16,7 +16,7 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ["3.10", "3.11", "3.12"]
+                python-version: ["3.11", "3.12"]
 
         steps:
             - name: Checkout code
@@ -26,18 +26,19 @@ jobs:
               uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
-                  cache: "pip"
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v3
+              with:
+                  enable-cache: true
 
             - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install -e ".[dev]"
-                  pip install psutil
+              run: uv sync --all-extras
 
             - name: Run standard tests
               id: tests
               run: |
-                  pytest tests/ -v --tb=short -m "not benchmark" > test_results.txt 2>&1 || true
+                  uv run pytest tests/ -v --tb=short -m "not benchmark" > test_results.txt 2>&1 || true
                   cat test_results.txt
 
                   # Extract test summary
@@ -54,7 +55,7 @@ jobs:
             - name: Run benchmark tests
               id: benchmarks
               run: |
-                  pytest tests/test_benchmarks.py -v --tb=short -s > benchmark_results.txt 2>&1 || true
+                  uv run pytest tests/test_benchmarks.py -v --tb=short -s > benchmark_results.txt 2>&1 || true
                   cat benchmark_results.txt
 
                   # Extract benchmark metrics from test output
@@ -124,6 +125,52 @@ jobs:
                       benchmark_results.txt
                       test_results.txt
                   retention-days: 90 # Keep for 90 days
+
+            - name: Create benchmark summary for changelog
+              if: github.event_name == 'release'
+              run: |
+                  python << 'PYTHON_SCRIPT'
+                  import json
+                  from pathlib import Path
+
+                  # Read metrics
+                  metrics_file = Path('benchmark_metrics.json')
+                  if metrics_file.exists():
+                      with open(metrics_file, 'r') as f:
+                          metrics = json.load(f)
+                      
+                      # Create a changelog-friendly summary
+                      summary_lines = []
+                      
+                      if 'embedding_500_rate' in metrics:
+                          rate_500 = float(metrics['embedding_500_rate'])
+                          summary_lines.append(f"Embedding performance: {rate_500:.1f} docs/sec (500 docs)")
+                      
+                      if 'embedding_2000_rate' in metrics:
+                          rate_2000 = float(metrics['embedding_2000_rate'])
+                          summary_lines.append(f"Embedding performance: {rate_2000:.1f} docs/sec (2000 docs)")
+                      
+                      if 'search_500_time' in metrics:
+                          search_ms = float(metrics['search_500_time']) * 1000
+                          summary_lines.append(f"Search latency: {search_ms:.1f}ms (500 docs)")
+                      
+                      if 'memory_delta_mb' in metrics:
+                          summary_lines.append(f"Memory footprint: {metrics['memory_delta_mb']}MB delta")
+                      
+                      # Save summary
+                      with open('benchmark_changelog_summary.txt', 'w') as f:
+                          f.write('\n'.join(summary_lines))
+                      
+                      print("✅ Benchmark summary for changelog created")
+                  PYTHON_SCRIPT
+
+            - name: Upload changelog summary
+              if: github.event_name == 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: benchmark-changelog-summary-python-${{ matrix.python-version }}
+                  path: benchmark_changelog_summary.txt
+                  retention-days: 7 # Short retention for changelog data
 
             - name: Create Job Summary
               if: always()
