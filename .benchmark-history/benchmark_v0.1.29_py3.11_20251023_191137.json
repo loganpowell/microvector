@@ -1,0 +1,20 @@
+{
+  "embedding_50_time": "0.306",
+  "embedding_50_rate": "163.4",
+  "embedding_500_time": "1.682",
+  "embedding_500_rate": "297.27",
+  "embedding_2000_time": "6.757",
+  "embedding_2000_rate": "295.99",
+  "search_500_time": "0.016",
+  "search_2000_time": "0.019",
+  "client_workflow_time": "1.725",
+  "memory_total_mb": "552.85",
+  "memory_delta_mb": "2.99",
+  "metadata": {
+    "version": "v0.1.29",
+    "python_version": "3.11",
+    "commit_sha": "ca7a972a70296155ac65f4fcc34871af85e09265",
+    "timestamp": "20251023_191137",
+    "runner_os": "ubuntu-latest"
+  }
+}
