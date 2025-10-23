@@ -11,13 +11,7 @@ from typing import Any, Optional
 from microvector.cache import vector_cache
 from microvector.utils import EMBEDDING_MODEL, SimilarityMetrics
 
-logging.basicConfig(
-    format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
-    datefmt="%Y-%m-%d:%H:%M:%S",
-    level=logging.INFO,
-    force=True,
-)
-
+# Get logger - let the library consumer configure logging
 logger = logging.getLogger(__name__)
 
 

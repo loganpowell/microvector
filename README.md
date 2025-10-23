@@ -68,7 +68,7 @@ The main interface for all vector operations.
 Client(
     cache_models: str = "./.cached_models",
     cache_vectors: str = "./.vector_cache",
-    embedding_model: str = "infgrad/stella-base-en-v2"
+    embedding_model: str = "avsolatorio/GIST-small-Embedding-v0"
 )
 ```
 
@@ -144,7 +144,7 @@ client.search(
 
 - `term`: Search query string
 - `partition_name`: Name of the vector store to query
-- `key`: Field name that was used for embedding
+- `key`: property within each item in the collection to search against (vectorized field)
 - `top_k`: Maximum number of results to return
 - `collection`: Optional temporary collection (for non-persistent search)
 - `cache`: If True, persist the collection; if False, keep in-memory only
@@ -207,7 +207,7 @@ Use any HuggingFace sentence-transformer model:
 
 ```python
 client = Client(
-    embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_model="intfloat/e5-small-v2"
 )
 ```
 

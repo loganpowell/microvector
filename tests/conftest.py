@@ -25,12 +25,14 @@ def shared_model_cache() -> Generator[str, None, None]:
     Session-scoped model cache directory.
 
     This is shared across all tests to avoid re-downloading the HuggingFace
-    model for every test. The cache is cleaned up after all tests complete.
+    model for every test. Uses a persistent cache directory so the model
+    is downloaded once and reused across test runs.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cache_dir = str(Path(tmpdir) / "models")
-        Path(cache_dir).mkdir(parents=True, exist_ok=True)
-        yield cache_dir
+    # Use a persistent cache directory in the project
+    cache_dir = Path(__file__).parent.parent / ".test_model_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    yield str(cache_dir)
+    # Note: We don't clean up the cache directory to enable reuse across test runs
 
 
 @pytest.fixture(scope="session")
@@ -51,3 +53,4 @@ def pytest_configure(config):  # type: ignore
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")  # type: ignore
+    config.addinivalue_line("markers", "benchmark: marks tests as performance benchmarks")  # type: ignore

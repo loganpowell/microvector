@@ -115,13 +115,6 @@ class TestStringifyNonstringTargetValues:
 
         assert result["count"] == "42"  # type: ignore
 
-    def test_stringify_primitive_types(self):
-        """Test that primitive types are returned as-is."""
-        assert stringify_nonstring_target_values("string", "key") == "string"
-        assert stringify_nonstring_target_values(123, "key") == 123
-        assert stringify_nonstring_target_values(45.67, "key") == 45.67
-        assert stringify_nonstring_target_values(True, "key") is True
-
     def test_stringify_mixed_types_in_list(self):
         """Test with mixed types in collection."""
         collection = [

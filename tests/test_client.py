@@ -69,9 +69,7 @@ class TestClientInitialization:
         assert os.path.exists(cache_models)
         assert os.path.exists(cache_vectors)
 
-    def test_client_creates_cache_directories(
-        self, temp_cache_dirs: tuple[str, str]
-    ) -> None:
+    def test_client_creates_cache_directories(self, temp_cache_dirs: tuple[str, str]) -> None:
         """Test that client creates cache directories if they don't exist."""
         cache_models, cache_vectors = temp_cache_dirs
         # Model cache is now session-scoped and already exists
@@ -89,9 +87,7 @@ class TestClientInitialization:
 class TestClientSave:
     """Tests for Client.save() method."""
 
-    def test_save_returns_success_info(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_save_returns_success_info(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test that save returns proper status information."""
         result = client.save(
             partition_name="test_partition",
@@ -135,9 +131,7 @@ class TestClientSave:
         assert result["status"] == "success"
         assert result["key"] == "description"
 
-    def test_save_with_different_algorithms(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_save_with_different_algorithms(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test saving with different similarity algorithms."""
         algorithms = ["cosine", "dot", "euclidean", "derrida"]
 
@@ -154,9 +148,7 @@ class TestClientSave:
 class TestClientSearch:
     """Tests for Client.search() method."""
 
-    def test_search_returns_results(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_search_returns_results(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test that search returns relevant results."""
         # First save the collection
         client.save(
@@ -177,9 +169,7 @@ class TestClientSearch:
         assert all("similarity_score" in r for r in results)
         assert all("text" in r for r in results)
 
-    def test_search_relevance(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_search_relevance(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test that search returns relevant results in order."""
         client.save(
             partition_name="relevance_test",
@@ -200,9 +190,7 @@ class TestClientSearch:
         # Should contain references to dogs
         assert any("dog" in r["text"].lower() for r in results)
 
-    def test_search_top_k_limit(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_search_top_k_limit(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test that top_k parameter limits results."""
         client.save(
             partition_name="topk_test",
@@ -239,9 +227,7 @@ class TestClientSearch:
         assert results is not None
         assert len(results) <= 2
 
-    def test_search_with_different_algorithms(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_search_with_different_algorithms(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test searching with different similarity algorithms."""
         algorithms = ["cosine", "dot", "euclidean"]
 
@@ -296,9 +282,7 @@ class TestClientSearch:
         assert results is not None
         assert len(results) > 0
 
-    def test_search_empty_term_returns_none(
-        self, client: Client, sample_collection: list[dict[str, str]]
-    ) -> None:
+    def test_search_empty_term_returns_none(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
         """Test that searching with empty term returns None."""
         client.save(
             partition_name="empty_term_test",

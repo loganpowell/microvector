@@ -25,7 +25,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Database",
@@ -47,6 +46,7 @@ dev = [
     "pytest>=8.3.4",
     "ruff>=0.8.5",
     "trio>=0.26.2",
+    "psutil>=5.9.0",
 ]
 
 [build-system]
@@ -72,7 +72,7 @@ explicit = true
 
 [tool.pyright]
 typeCheckingMode = "standard"
-include = ["src/microvector", "tests"]
+include = ["src/microvector", "tests", "scripts"]
 venvPath = "."
 venv = ".venv"
 

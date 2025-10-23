@@ -1,0 +1,282 @@
+name: Benchmark & Test on Release
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch: # Allow manual triggering
+
+permissions:
+    contents: write # Needed to commit benchmark results
+    pull-requests: write
+
+jobs:
+    test-and-benchmark:
+        name: Run Tests & Benchmarks
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                python-version: ["3.10", "3.11", "3.12"]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v5
+              with:
+                  python-version: ${{ matrix.python-version }}
+                  cache: "pip"
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -e ".[dev]"
+                  pip install psutil
+
+            - name: Run standard tests
+              id: tests
+              run: |
+                  pytest tests/ -v --tb=short -m "not benchmark" > test_results.txt 2>&1 || true
+                  cat test_results.txt
+
+                  # Extract test summary
+                  if grep -q "passed" test_results.txt; then
+                    PASSED=$(grep -oP '\d+(?= passed)' test_results.txt | tail -1)
+                    FAILED=$(grep -oP '\d+(?= failed)' test_results.txt | tail -1 || echo "0")
+                    echo "tests_passed=$PASSED" >> $GITHUB_OUTPUT
+                    echo "tests_failed=$FAILED" >> $GITHUB_OUTPUT
+                  else
+                    echo "tests_passed=0" >> $GITHUB_OUTPUT
+                    echo "tests_failed=0" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Run benchmark tests
+              id: benchmarks
+              run: |
+                  pytest tests/test_benchmarks.py -v --tb=short -s > benchmark_results.txt 2>&1 || true
+                  cat benchmark_results.txt
+
+                  # Extract benchmark metrics from test output
+                  echo "benchmark_output<<EOF" >> $GITHUB_OUTPUT
+                  cat benchmark_results.txt >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: Parse benchmark metrics
+              id: parse_metrics
+              run: |
+                  python << 'PYTHON_SCRIPT'
+                  import json
+                  import re
+                  from pathlib import Path
+
+                  # Read benchmark output
+                  with open('benchmark_results.txt', 'r') as f:
+                      output = f.read()
+
+                  # Extract metrics from output
+                  metrics = {}
+
+                  # Embedding benchmarks
+                  if match := re.search(r'Embedding 50 docs: ([\d.]+)s \(([\d.]+) docs/sec\)', output):
+                      metrics['embedding_50_time'] = match.group(1)
+                      metrics['embedding_50_rate'] = match.group(2)
+
+                  if match := re.search(r'Embedding 500 docs: ([\d.]+)s \(([\d.]+) docs/sec\)', output):
+                      metrics['embedding_500_time'] = match.group(1)
+                      metrics['embedding_500_rate'] = match.group(2)
+
+                  if match := re.search(r'Embedding 2000 docs: ([\d.]+)s \(([\d.]+) docs/sec\)', output):
+                      metrics['embedding_2000_time'] = match.group(1)
+                      metrics['embedding_2000_rate'] = match.group(2)
+
+                  # Search benchmarks
+                  if match := re.search(r'Search in 500 docs: ([\d.]+)s', output):
+                      metrics['search_500_time'] = match.group(1)
+
+                  if match := re.search(r'Search in 2000 docs: ([\d.]+)s', output):
+                      metrics['search_2000_time'] = match.group(1)
+
+                  # Client workflow
+                  if match := re.search(r'Client workflow \(500 docs\): ([\d.]+)s', output):
+                      metrics['client_workflow_time'] = match.group(1)
+
+                  # Memory usage
+                  if match := re.search(r'Memory usage \(2000 docs\): ([\d.]+) MB \(delta: ([\d.]+) MB\)', output):
+                      metrics['memory_total_mb'] = match.group(1)
+                      metrics['memory_delta_mb'] = match.group(2)
+
+                  # Save metrics
+                  metrics_file = Path('benchmark_metrics.json')
+                  with open(metrics_file, 'w') as f:
+                      json.dump(metrics, f, indent=2)
+
+                  print("✅ Metrics parsed successfully")
+                  print(json.dumps(metrics, indent=2))
+                  PYTHON_SCRIPT
+
+            - name: Upload benchmark results
+              uses: actions/upload-artifact@v4
+              with:
+                  name: benchmark-results-python-${{ matrix.python-version }}
+                  path: |
+                      benchmark_metrics.json
+                      benchmark_results.txt
+                      test_results.txt
+                  retention-days: 90 # Keep for 90 days
+
+            - name: Create Job Summary
+              if: always()
+              run: |
+                  python << 'PYTHON_SCRIPT'
+                  import json
+                  import os
+                  from pathlib import Path
+                  from datetime import datetime
+
+                  # Read metrics
+                  metrics_file = Path('benchmark_metrics.json')
+                  if metrics_file.exists():
+                      with open(metrics_file, 'r') as f:
+                          metrics = json.load(f)
+                  else:
+                      metrics = {}
+
+                  # Get environment info
+                  python_version = "${{ matrix.python-version }}"
+                  release_tag = "${{ github.event.release.tag_name }}" or "manual-run"
+                  timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+                  # Build markdown summary
+                  summary = f"""# 🚀 Microvector Performance Report
+
+                  **Release**: `{release_tag}`  
+                  **Python Version**: `{python_version}`  
+                  **Date**: {timestamp}  
+                  **Commit**: `{os.getenv('GITHUB_SHA', 'N/A')[:7]}`
+
+                  ---
+
+                  ## ✅ Test Results
+
+                  | Metric | Value |
+                  |--------|-------|
+                  | Tests Passed | ${{ steps.tests.outputs.tests_passed || '0' }} |
+                  | Tests Failed | ${{ steps.tests.outputs.tests_failed || '0' }} |
+
+                  ---
+
+                  ## ⚡ Performance Benchmarks
+
+                  ### Embedding Performance
+
+                  | Documents | Time (s) | Rate (docs/sec) |
+                  |-----------|----------|-----------------|
+                  | 50 | {metrics.get('embedding_50_time', 'N/A')} | {metrics.get('embedding_50_rate', 'N/A')} |
+                  | 500 | {metrics.get('embedding_500_time', 'N/A')} | {metrics.get('embedding_500_rate', 'N/A')} |
+                  | 2,000 | {metrics.get('embedding_2000_time', 'N/A')} | {metrics.get('embedding_2000_rate', 'N/A')} |
+
+                  ### Search Performance
+
+                  | Documents | Time (s) | Description |
+                  |-----------|----------|-------------|
+                  | 500 | {metrics.get('search_500_time', 'N/A')} | Query with top_k=10 |
+                  | 2,000 | {metrics.get('search_2000_time', 'N/A')} | Query with top_k=10 |
+
+                  ### Client Workflow
+
+                  | Operation | Time (s) |
+                  |-----------|----------|
+                  | Save + Search (500 docs) | {metrics.get('client_workflow_time', 'N/A')} |
+
+                  ### Memory Usage
+
+                  | Metric | Value (MB) |
+                  |--------|------------|
+                  | Total Memory | {metrics.get('memory_total_mb', 'N/A')} |
+                  | Memory Delta | {metrics.get('memory_delta_mb', 'N/A')} |
+
+                  ---
+
+                  ## 📊 Performance Insights
+
+                  """
+
+                  # Add insights based on metrics
+                  if metrics.get('embedding_500_rate'):
+                      rate = float(metrics['embedding_500_rate'])
+                      if rate > 100:
+                          summary += "✅ **Excellent** embedding performance (>100 docs/sec)\n\n"
+                      elif rate > 50:
+                          summary += "✅ **Good** embedding performance (>50 docs/sec)\n\n"
+                      else:
+                          summary += "⚠️ **Below target** embedding performance (<50 docs/sec)\n\n"
+
+                  if metrics.get('search_500_time'):
+                      time_ms = float(metrics['search_500_time']) * 1000
+                      summary += f"Search latency: **{time_ms:.1f}ms** for 500 documents\n\n"
+
+                  if metrics.get('memory_delta_mb'):
+                      mem_delta = float(metrics['memory_delta_mb'])
+                      if mem_delta < 100:
+                          summary += f"✅ **Efficient** memory usage ({mem_delta}MB delta)\n\n"
+                      else:
+                          summary += f"⚠️ **High** memory usage ({mem_delta}MB delta)\n\n"
+
+                  summary += """
+                  ---
+
+                  *This report is automatically generated on each release.*  
+                  *Benchmark results are stored as artifacts for 90 days.*
+                  """
+
+                  # Write to GitHub Step Summary
+                  with open(os.getenv('GITHUB_STEP_SUMMARY', '/dev/null'), 'w') as f:
+                      f.write(summary)
+
+                  print("✅ Job summary created successfully")
+                  PYTHON_SCRIPT
+
+            - name: Store benchmark history
+              if: github.event_name == 'release'
+              run: |
+                  # Create benchmark history directory in repo
+                  mkdir -p .benchmark-history
+
+                  # Create a unique filename with timestamp and version
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  VERSION="${{ github.event.release.tag_name }}"
+                  PYTHON_VER="${{ matrix.python-version }}"
+                  FILENAME=".benchmark-history/benchmark_${VERSION}_py${PYTHON_VER}_${TIMESTAMP}.json"
+
+                  # Add metadata to metrics
+                  python << PYTHON_SCRIPT
+                  import json
+                  from pathlib import Path
+
+                  # Read current metrics
+                  with open('benchmark_metrics.json', 'r') as f:
+                      metrics = json.load(f)
+
+                  # Add metadata
+                  metrics['metadata'] = {
+                      'version': '${{ github.event.release.tag_name }}',
+                      'python_version': '${{ matrix.python-version }}',
+                      'commit_sha': '${{ github.sha }}',
+                      'timestamp': '${TIMESTAMP}',
+                      'runner_os': 'ubuntu-latest'
+                  }
+
+                  # Save to history file
+                  with open('${FILENAME}', 'w') as f:
+                      json.dump(metrics, f, indent=2)
+
+                  print(f"✅ Saved benchmark history to ${FILENAME}")
+                  PYTHON_SCRIPT
+
+                  # Commit the benchmark history
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add .benchmark-history/
+                  git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python ${{ matrix.python-version }})" || true
+                  git push || true

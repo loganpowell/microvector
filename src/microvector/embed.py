@@ -4,26 +4,24 @@ Takes a list of chunks and returns a list of embeddings.
 
 import logging
 from typing import Union, Optional, cast
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-from sentence_transformers import SentenceTransformer  # type: ignore
+from sentence_transformers import SentenceTransformer
 
-from microvector.utils import EMBEDDING_MODEL
+from microvector.utils import EMBEDDING_MODEL, get_local_model_path
 
 # Use concrete float32 type instead of generic floating[Any] for better type checking
 FloatArray = NDArray[np.float32]
 
-logging.basicConfig(
-    format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
-    datefmt="%Y-%m-%d:%H:%M:%S",
-    level=logging.INFO,
-    force=True,
-)
-
+# Get logger - let the library consumer configure logging
 logger = logging.getLogger(__name__)
 
-MAX_BATCH_SIZE = 16
+
+# Module-level cache for model instances to avoid re-initialization
+# This prevents reloading the model from disk on every function call within the same process
+_model_cache: dict[tuple[str, str], SentenceTransformer] = {}
 
 
 def get_embeddings(
@@ -33,14 +31,38 @@ def get_embeddings(
     cache_folder: str = "./.cached_models",
 ) -> list[FloatArray]:
     logger.debug("Starting get_embeddings function.")
-    logger.info(f"Input chunks type: {type(chunks)}, key: {key}")
-    logger.debug(f"Loading model: {model}")
-    embedding_model = SentenceTransformer(
-        model,
-        trust_remote_code=True,
-        cache_folder=cache_folder,
-        model_kwargs={"use_safetensors": True},
-    )
+    logger.debug(f"Input chunks type: {type(chunks)}, key: {key}")
+
+    # Use cached model instance if available (for performance within same process)
+    # This is the primary optimization - avoiding re-initialization of SentenceTransformer
+    cache_key = (model, cache_folder)
+    if cache_key in _model_cache:
+        logger.debug(f"Using in-memory cached model instance for {model}")
+        embedding_model = _model_cache[cache_key]
+    else:
+        # Check if model exists locally to support offline mode
+        local_model_path = get_local_model_path(model, cache_folder)
+
+        if local_model_path:
+            # Load from local path (offline mode)
+            logger.info(f"Loading model from local path: {local_model_path}")
+            embedding_model = SentenceTransformer(
+                str(local_model_path),
+                trust_remote_code=True,
+                model_kwargs={"use_safetensors": True},
+            )
+        else:
+            # Download from HuggingFace Hub (requires internet)
+            logger.info(f"Downloading model from HuggingFace: {model}")
+            embedding_model = SentenceTransformer(
+                model,
+                trust_remote_code=True,
+                cache_folder=cache_folder,
+                model_kwargs={"use_safetensors": True},
+            )
+
+        # Cache the loaded instance for subsequent calls in this process
+        _model_cache[cache_key] = embedding_model
     # log out the first 5 chunks
     if isinstance(chunks, list):
         # logger.debug(f"First 2 chunks: {json.dumps(chunks[:2], indent=2)}")
@@ -111,19 +133,59 @@ def get_embeddings(
         # print(chunks)
         raise ValueError(warning)
 
-    embeddings: list[FloatArray] = []
+    # Show progress bar only if logging level is DEBUG or lower (more verbose)
+    show_progress = logger.isEnabledFor(logging.DEBUG)
 
-    logger.debug(f"Splitting texts into batches of size {MAX_BATCH_SIZE}.")
-    batches = [
-        texts[i : i + MAX_BATCH_SIZE] for i in range(0, len(texts), MAX_BATCH_SIZE)
-    ]
-    embeddings = []
+    logger.debug(f"Encoding {len(texts)} texts")
+    embeddings = embedding_model.encode(
+        texts,
+        normalize_embeddings=True,
+        show_progress_bar=show_progress,
+    )
 
-    for batch in batches:
-        logger.debug(f"Encoding batch with size: {len(batch)}")
-        embeds = embedding_model.encode(batch, normalize_embeddings=True)
-        # print(f"embeds: {embeds}")
-        embeddings.extend(embeds)
-    # print(f"embeds: {embeds}")
     logger.debug("Completed embeddings generation.")
-    return embeddings
+    # Convert to list for consistency with existing API
+    return list(embeddings)
+
+
+def save_model_for_offline_use(
+    model_name: str = EMBEDDING_MODEL,
+    cache_folder: str = "./.cached_models",
+) -> Path:
+    """
+    Download and save a model for offline use.
+
+    This function downloads a model from HuggingFace Hub and saves it locally
+    in a format that can be loaded without internet connectivity.
+
+    Args:
+        model_name: HuggingFace model ID (e.g., 'avsolatorio/GIST-small-Embedding-v0')
+        cache_folder: Directory to save the model
+
+    Returns:
+        Path to the saved model directory
+
+    Example:
+        >>> from microvector.embed import save_model_for_offline_use
+        >>> model_path = save_model_for_offline_use()
+        >>> print(f"Model saved to: {model_path}")
+    """
+    cache_path = Path(cache_folder)
+    cache_path.mkdir(parents=True, exist_ok=True)
+
+    # Sanitize model name for directory (replace '/' with '--')
+    safe_model_name = model_name.replace("/", "--")
+    save_path = cache_path / safe_model_name
+
+    logger.info(f"Downloading model '{model_name}' for offline use...")
+    model = SentenceTransformer(
+        model_name,
+        trust_remote_code=True,
+        model_kwargs={"use_safetensors": True},
+    )
+
+    logger.info(f"Saving model to: {save_path}")
+    model.save(str(save_path))
+
+    logger.info(f"Model '{model_name}' successfully saved for offline use")
+    return save_path

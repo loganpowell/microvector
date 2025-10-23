@@ -16,17 +16,11 @@ from microvector.store import Store
 # Use concrete float32 type instead of generic floating[Any] for better type checking
 FloatArray = NDArray[np.float32]
 
-logging.basicConfig(
-    format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
-    datefmt="%Y-%m-%d:%H:%M:%S",
-    level=logging.INFO,
-    force=True,
-)
-
+# Get logger - let the library consumer configure logging
 logger = logging.getLogger(__name__)
 
 
-def get_embeddings_customized(
+def embeddings_lambda(
     key: str,
     model: str = EMBEDDING_MODEL,
     cache_folder: str = "./.cached_models",
@@ -79,7 +73,7 @@ def vector_cache(
             db = Store(
                 formatted_collection,
                 key=key,
-                embedding_function=get_embeddings_customized(
+                embedding_function=embeddings_lambda(
                     key=key, model=model, cache_folder=cache_models
                 ),
                 algo=algo,
@@ -90,7 +84,7 @@ def vector_cache(
             logger.info("Loading cached vector store (%s) from %s...", partition, path)
             db = Store(
                 key=key,
-                embedding_function=get_embeddings_customized(
+                embedding_function=embeddings_lambda(
                     key=key, model=model, cache_folder=cache_models
                 ),
                 algo=algo,
@@ -100,7 +94,7 @@ def vector_cache(
         db = Store(
             formatted_collection,
             key=key,
-            embedding_function=get_embeddings_customized(
+            embedding_function=embeddings_lambda(
                 key=key, model=model, cache_folder=cache_models
             ),
             algo=algo,
