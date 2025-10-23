@@ -1,0 +1,84 @@
+[project]
+name = "microvector"
+description = "Lightweight local vector database with persistence to disk, supporting multiple similarity metrics and easy-to-use API."
+dynamic = ["version"]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "John Dagdelen" },
+    { name = "Logan Powell" }
+]
+readme = "README.md"
+keywords = ["vector", "embeddings", "llm", "automation", "similarity", "search", "database", "machine-learning"]
+
+dependencies = [
+    "numpy>=1.21.0",
+    "torch>=2.0.0",
+    "transformers>=4.20.0",
+    "sentence-transformers>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/loganpowell/microvector"
+Repository = "https://github.com/loganpowell/microvector"
+Issues = "https://github.com/loganpowell/microvector/issues"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.400",
+    "pytest>=8.3.4",
+    "ruff>=0.8.5",
+    "trio>=0.26.2",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microvector"]
+
+
+[tool.uv.sources]
+microvector = { workspace = true }
+torch = { index = "pytorch-cpu" }
+
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["src/microvector", "tests"]
+venvPath = "."
+venv = ".venv"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["README.md"]
+
+[tool.pytest.ini_options]
+log_cli_level = "INFO"
+xfail_strict = true
+addopts = """
+    --color=yes
+    --capture=fd
+"""
+filterwarnings = [
+    "error",
+    # Websockets deprecation warnings
+    "ignore::DeprecationWarning:websockets",
+    "ignore:websockets.server.WebSocketServerProtocol is deprecated:DeprecationWarning",
+    "ignore:Returning str or bytes.*:DeprecationWarning:mcp.server.lowlevel",
+    # pywin32 internal deprecation warning
+    "ignore:getargs.*The 'u' format is deprecated:DeprecationWarning",
+    # ML library warnings
+    "ignore::DeprecationWarning:torch",
+    "ignore::UserWarning:torch",
+]
