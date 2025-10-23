@@ -158,7 +158,7 @@ jobs:
                   CONTEXT_EOF
 
                   # Use GitHub Models to generate changelog entry
-                  cat ai_context.txt | gh models run gpt-4o \
+                  cat ai_context.txt | gh models run xai/grok-3 \
                     "You are a technical writer creating a changelog entry for a Python library called microvector - a lightweight local vector database.
 
                   Based on the git diff, commit messages, and benchmark data provided, create a changelog entry following the Keep a Changelog format.
