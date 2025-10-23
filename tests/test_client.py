@@ -313,6 +313,53 @@ class TestClientSearch:
 
         assert results is None
 
+    def test_search_jurisdiction_collection(self, client: Client) -> None:
+        """Test searching jurisdiction data by name."""
+        collection = [
+            {
+                "jurisdictionName": "AFGHANISTAN",
+                "jurType": "COUNTRY",
+                "countryJurisdictionId": None,
+                "countryName": None,
+                "stateJurisdictionId": None,
+                "stateName": None,
+                "hasImpositionIndicator": True,
+                "jurisdictionId": 80334,
+            },
+            {
+                "jurisdictionName": "ALAND ISLANDS",
+                "jurType": "COUNTRY",
+                "countryJurisdictionId": None,
+                "countryName": None,
+                "stateJurisdictionId": None,
+                "stateName": None,
+                "hasImpositionIndicator": True,
+                "jurisdictionId": 80335,
+            },
+        ]
+
+        client.save(
+            partition_name="Country",
+            collection=collection,
+            key="jurisdictionName",
+        )
+
+        results = client.search(
+            term="US",
+            partition_name="Country",
+            key="jurisdictionName",
+            top_k=5,
+        )
+
+        assert results is not None
+        assert len(results) <= 5
+        # Verify all required fields are present
+        for result in results:
+            assert "similarity_score" in result
+            assert "jurisdictionName" in result
+            assert "jurisdictionId" in result
+            assert "jurType" in result
+
 
 class TestClientEdgeCases:
     """Tests for edge cases and error conditions."""
