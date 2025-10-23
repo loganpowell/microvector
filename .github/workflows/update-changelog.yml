@@ -165,15 +165,16 @@ jobs:
 
                   The entry should:
                   1. Start with ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
-                  2. Categorize changes into: Added, Changed, Deprecated, Removed, Fixed, Security
-                  3. Write clear, user-facing descriptions (not just commit messages)
-                  4. If performance improvements are evident from benchmarks, mention them in a 'Performance' section
-                  5. Focus on changes that matter to users of the library
-                  6. Use bullet points (- ) for each item
-                  7. Be concise but informative
-                  8. Include relevant technical details where helpful
+                  2. Categorize changes into: Added, Changed, Deprecated, Removed, Fixed, Security, Performance
+                  3. IMPORTANT: Only include sections that have actual content. Omit any section that would be empty or say 'Not applicable' or 'None'
+                  4. Write clear, user-facing descriptions (not just commit messages)
+                  5. If performance improvements are evident from benchmarks, mention them in a 'Performance' section
+                  6. Focus on changes that matter to users of the library
+                  7. Use bullet points (- ) for each item
+                  8. Be concise but informative
+                  9. Include relevant technical details where helpful
 
-                  If this is the first release, include a brief introduction about what the library does.
+                  If this is the first release, you may include a brief introduction about what the library does.
 
                   Only output the changelog entry in markdown format, nothing else. Do not include code blocks or backticks around the output." \
                   > changelog_entry.md
@@ -263,7 +264,10 @@ jobs:
                     echo "No changes to commit"
                   else
                     git commit -m "📝 Update CHANGELOG for ${{ github.event.release.tag_name }}"
-                    git push
+                    
+                    # Push to main branch (we're in detached HEAD state from the release tag)
+                    git push origin HEAD:main
+                    
                     echo "✅ Changelog committed and pushed"
                   fi
 
