@@ -1,300 +1,301 @@
 name: Update Changelog
 
 on:
-    release:
-        types: [published]
-    workflow_dispatch: # Allow manual triggering
+  release:
+    types: [published]
+  workflow_dispatch: # Allow manual triggering
 
 permissions:
-    contents: write # Needed to commit changelog updates
-    models: read # Needed to access GitHub Models
+  contents: write # Needed to commit changelog updates
+  models: read # Needed to access GitHub Models
 
 jobs:
-    update-changelog:
-        name: Generate and Update Changelog
-        runs-on: ubuntu-latest
+  update-changelog:
+    name: Generate and Update Changelog
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0 # Full history needed for git diff
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history needed for git diff
+          ref: main # Checkout main branch to get latest CHANGELOG.md
 
-            - name: Get previous release tag
-              id: prev_release
-              run: |
-                  # Get the tag before the current one
-                  CURRENT_TAG="${{ github.event.release.tag_name }}"
-                  PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
+      - name: Get previous release tag
+        id: prev_release
+        run: |
+          # Get the tag before the current one
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
 
-                  if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
-                    # If no previous tag, get first commit
-                    PREV_TAG=$(git rev-list --max-parents=0 HEAD)
-                    echo "first_release=true" >> $GITHUB_OUTPUT
-                  else
-                    echo "first_release=false" >> $GITHUB_OUTPUT
-                  fi
+          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
+            # If no previous tag, get first commit
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+            echo "first_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "first_release=false" >> $GITHUB_OUTPUT
+          fi
 
-                  echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-                  echo "📍 Previous release: $PREV_TAG"
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "📍 Previous release: $PREV_TAG"
 
-            - name: Generate git diff
-              id: git_diff
-              run: |
-                  CURRENT_TAG="${{ github.event.release.tag_name }}"
-                  PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
+      - name: Generate git diff
+        id: git_diff
+        run: |
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+          PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
 
-                  # Generate detailed diff
-                  git diff ${PREV_TAG}..${CURRENT_TAG} > full_diff.txt
+          # Generate detailed diff
+          git diff ${PREV_TAG}..${CURRENT_TAG} > full_diff.txt
 
-                  # Generate summary of changed files
-                  git diff --stat ${PREV_TAG}..${CURRENT_TAG} > diff_summary.txt
+          # Generate summary of changed files
+          git diff --stat ${PREV_TAG}..${CURRENT_TAG} > diff_summary.txt
 
-                  # Get commit messages
-                  git log ${PREV_TAG}..${CURRENT_TAG} --pretty=format:"- %s (%h)" > commits.txt
+          # Get commit messages
+          git log ${PREV_TAG}..${CURRENT_TAG} --pretty=format:"- %s (%h)" > commits.txt
 
-                  echo "✅ Git diff generated"
-                  echo "📊 Changed files:"
-                  cat diff_summary.txt
+          echo "✅ Git diff generated"
+          echo "📊 Changed files:"
+          cat diff_summary.txt
 
-            - name: Download benchmark results
-              id: download_benchmarks
-              continue-on-error: true
-              uses: actions/download-artifact@v4
-              with:
-                  pattern: benchmark-results-python-*
-                  merge-multiple: true
-                  path: ./benchmark-data
+      - name: Download benchmark results
+        id: download_benchmarks
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-results-python-*
+          merge-multiple: true
+          path: ./benchmark-data
 
-            - name: Prepare benchmark summary
-              id: benchmark_summary
-              run: |
-                  if [ -d "./benchmark-data" ]; then
-                    echo "has_benchmarks=true" >> $GITHUB_OUTPUT
-                    
-                    # Combine all benchmark metrics into one summary
-                    python << 'PYTHON_SCRIPT'
-                  import json
-                  import os
-                  from pathlib import Path
+      - name: Prepare benchmark summary
+        id: benchmark_summary
+        run: |
+          if [ -d "./benchmark-data" ]; then
+            echo "has_benchmarks=true" >> $GITHUB_OUTPUT
+            
+            # Combine all benchmark metrics into one summary
+            python << 'PYTHON_SCRIPT'
+          import json
+          import os
+          from pathlib import Path
 
-                  benchmark_dir = Path('./benchmark-data')
-                  if benchmark_dir.exists():
-                      # Find all metric files
-                      metric_files = list(benchmark_dir.glob('benchmark_metrics.json'))
-                      
-                      if metric_files:
-                          # Read the first one (they should all be similar)
-                          with open(metric_files[0], 'r') as f:
-                              metrics = json.load(f)
-                          
-                          # Create a human-readable summary
-                          summary_lines = ["## Performance Metrics\n"]
-                          
-                          if 'embedding_500_rate' in metrics:
-                              summary_lines.append(f"- Embedding rate: {metrics['embedding_500_rate']} docs/sec (500 docs)")
-                          if 'embedding_2000_rate' in metrics:
-                              summary_lines.append(f"- Embedding rate: {metrics['embedding_2000_rate']} docs/sec (2000 docs)")
-                          if 'search_500_time' in metrics:
-                              search_ms = float(metrics['search_500_time']) * 1000
-                              summary_lines.append(f"- Search latency: {search_ms:.1f}ms (500 docs)")
-                          if 'memory_delta_mb' in metrics:
-                              summary_lines.append(f"- Memory usage: {metrics['memory_delta_mb']}MB delta")
-                          
-                          summary = "\n".join(summary_lines)
-                          
-                          # Save to file
-                          with open('benchmark_summary.txt', 'w') as f:
-                              f.write(summary)
-                          
-                          print("✅ Benchmark summary created")
-                      else:
-                          print("⚠️ No benchmark metrics found")
-                          with open('benchmark_summary.txt', 'w') as f:
-                              f.write("No benchmark data available for this release.")
-                  else:
-                      print("⚠️ No benchmark directory found")
-                      with open('benchmark_summary.txt', 'w') as f:
-                          f.write("No benchmark data available for this release.")
-                  PYTHON_SCRIPT
-                  else
-                    echo "has_benchmarks=false" >> $GITHUB_OUTPUT
-                    echo "No benchmark data available for this release." > benchmark_summary.txt
-                  fi
+          benchmark_dir = Path('./benchmark-data')
+          if benchmark_dir.exists():
+              # Find all metric files
+              metric_files = list(benchmark_dir.glob('benchmark_metrics.json'))
+              
+              if metric_files:
+                  # Read the first one (they should all be similar)
+                  with open(metric_files[0], 'r') as f:
+                      metrics = json.load(f)
+                  
+                  # Create a human-readable summary
+                  summary_lines = ["## Performance Metrics\n"]
+                  
+                  if 'embedding_500_rate' in metrics:
+                      summary_lines.append(f"- Embedding rate: {metrics['embedding_500_rate']} docs/sec (500 docs)")
+                  if 'embedding_2000_rate' in metrics:
+                      summary_lines.append(f"- Embedding rate: {metrics['embedding_2000_rate']} docs/sec (2000 docs)")
+                  if 'search_500_time' in metrics:
+                      search_ms = float(metrics['search_500_time']) * 1000
+                      summary_lines.append(f"- Search latency: {search_ms:.1f}ms (500 docs)")
+                  if 'memory_delta_mb' in metrics:
+                      summary_lines.append(f"- Memory usage: {metrics['memory_delta_mb']}MB delta")
+                  
+                  summary = "\n".join(summary_lines)
+                  
+                  # Save to file
+                  with open('benchmark_summary.txt', 'w') as f:
+                      f.write(summary)
+                  
+                  print("✅ Benchmark summary created")
+              else:
+                  print("⚠️ No benchmark metrics found")
+                  with open('benchmark_summary.txt', 'w') as f:
+                      f.write("No benchmark data available for this release.")
+          else:
+              print("⚠️ No benchmark directory found")
+              with open('benchmark_summary.txt', 'w') as f:
+                  f.write("No benchmark data available for this release.")
+          PYTHON_SCRIPT
+          else
+            echo "has_benchmarks=false" >> $GITHUB_OUTPUT
+            echo "No benchmark data available for this release." > benchmark_summary.txt
+          fi
 
-            - name: Install gh-models extension
-              run: |
-                  gh extension install https://github.com/github/gh-models
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install gh-models extension
+        run: |
+          gh extension install https://github.com/github/gh-models
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Generate changelog entry with AI
-              id: generate_changelog
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  CURRENT_TAG="${{ github.event.release.tag_name }}"
-                  PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
-                  IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
+      - name: Generate changelog entry with AI
+        id: generate_changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT_TAG="${{ github.event.release.tag_name }}"
+          PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
+          IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
-                  # Create a comprehensive context file for the AI
-                  cat > ai_context.txt << 'CONTEXT_EOF'
-                  # Release Information
-                  Current Version: ${CURRENT_TAG}
-                  Previous Version: ${PREV_TAG}
-                  First Release: ${IS_FIRST}
+          # Create a comprehensive context file for the AI
+          cat > ai_context.txt << 'CONTEXT_EOF'
+          # Release Information
+          Current Version: ${CURRENT_TAG}
+          Previous Version: ${PREV_TAG}
+          First Release: ${IS_FIRST}
 
-                  # Commit Messages
-                  $(cat commits.txt)
+          # Commit Messages
+          $(cat commits.txt)
 
-                  # File Changes Summary
-                  $(cat diff_summary.txt)
+          # File Changes Summary
+          $(cat diff_summary.txt)
 
-                  # Benchmark Data
-                  $(cat benchmark_summary.txt)
+          # Benchmark Data
+          $(cat benchmark_summary.txt)
 
-                  # Sample of Code Changes (first 2000 lines of diff)
-                  $(head -n 2000 full_diff.txt)
-                  CONTEXT_EOF
+          # Sample of Code Changes (first 2000 lines of diff)
+          $(head -n 2000 full_diff.txt)
+          CONTEXT_EOF
 
-                  # Use GitHub Models to generate changelog entry
-                  cat ai_context.txt | gh models run xai/grok-3 \
-                    "You are a technical writer creating a changelog entry for a Python library called microvector - a lightweight local vector database.
+          # Use GitHub Models to generate changelog entry
+          cat ai_context.txt | gh models run xai/grok-3 \
+            "You are a technical writer creating a changelog entry for a Python library called microvector - a lightweight local vector database.
 
-                  Based on the git diff, commit messages, and benchmark data provided, create a changelog entry following the Keep a Changelog format.
+          Based on the git diff, commit messages, and benchmark data provided, create a changelog entry following the Keep a Changelog format.
 
-                  The entry should:
-                  1. Start with ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
-                  2. Categorize changes into: Added, Changed, Deprecated, Removed, Fixed, Security, Performance
-                  3. IMPORTANT: Only include sections that have actual content. Omit any section that would be empty or say 'Not applicable' or 'None'
-                  4. Write clear, user-facing descriptions (not just commit messages)
-                  5. If performance improvements are evident from benchmarks, mention them in a 'Performance' section
-                  6. Focus on changes that matter to users of the library
-                  7. Use bullet points (- ) for each item
-                  8. Be concise but informative
-                  9. Include relevant technical details where helpful
+          The entry should:
+          1. Start with ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
+          2. Categorize changes into: Added, Changed, Deprecated, Removed, Fixed, Security, Performance
+          3. IMPORTANT: Only include sections that have actual content. Omit any section that would be empty or say 'Not applicable' or 'None'
+          4. Write clear, user-facing descriptions (not just commit messages)
+          5. If performance improvements are evident from benchmarks, mention them in a 'Performance' section
+          6. Focus on changes that matter to users of the library
+          7. Use bullet points (- ) for each item
+          8. Be concise but informative
+          9. Include relevant technical details where helpful
 
-                  If this is the first release, you may include a brief introduction about what the library does.
+          If this is the first release, you may include a brief introduction about what the library does.
 
-                  Only output the changelog entry in markdown format, nothing else. Do not include code blocks or backticks around the output." \
-                  > changelog_entry.md
+          Only output the changelog entry in markdown format, nothing else. Do not include code blocks or backticks around the output." \
+          > changelog_entry.md
 
-                  echo "✅ Changelog entry generated"
-                  echo "📝 Preview:"
-                  cat changelog_entry.md
+          echo "✅ Changelog entry generated"
+          echo "📝 Preview:"
+          cat changelog_entry.md
 
-            - name: Update CHANGELOG.md
-              run: |
-                  # Read the new entry
-                  NEW_ENTRY=$(cat changelog_entry.md)
+      - name: Update CHANGELOG.md
+        run: |
+          # Read the new entry
+          NEW_ENTRY=$(cat changelog_entry.md)
 
-                  # Read current changelog
-                  if [ ! -f CHANGELOG.md ]; then
-                    # Create new changelog if it doesn't exist
-                    cat > CHANGELOG.md << 'EOF'
-                  # Changelog
+          # Read current changelog
+          if [ ! -f CHANGELOG.md ]; then
+            # Create new changelog if it doesn't exist
+            cat > CHANGELOG.md << 'EOF'
+          # Changelog
 
-                  All notable changes to this project will be documented in this file.
+          All notable changes to this project will be documented in this file.
 
-                  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-                  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-                  EOF
-                  fi
+          EOF
+          fi
 
-                  # Use Python to insert the new entry
-                  python << 'PYTHON_SCRIPT'
-                  import re
-                  from pathlib import Path
+          # Use Python to insert the new entry at the top
+          python << 'PYTHON_SCRIPT'
+          import re
+          from pathlib import Path
 
-                  # Read the changelog
-                  changelog_path = Path('CHANGELOG.md')
-                  changelog = changelog_path.read_text()
+          # Read the changelog
+          changelog_path = Path('CHANGELOG.md')
+          changelog = changelog_path.read_text()
 
-                  # Read the new entry
-                  new_entry = Path('changelog_entry.md').read_text().strip()
+          # Read the new entry
+          new_entry = Path('changelog_entry.md').read_text().strip()
 
-                  # Add release link to the changelog entry
-                  version = "${{ github.event.release.tag_name }}"
-                  release_url = "https://github.com/${{ github.repository }}/releases/tag/${version}"
+          # Add release link to the changelog entry
+          version = "${{ github.event.release.tag_name }}"
+          release_url = "https://github.com/${{ github.repository }}/releases/tag/${version}"
 
-                  # Modify the version header to include a link to the release
-                  # Pattern: ## [version] - date
-                  version_pattern = rf'## \[{re.escape(version)}\]'
-                  if re.search(version_pattern, new_entry):
-                      new_entry = re.sub(
-                          version_pattern,
-                          f'## [{version}]({release_url})',
-                          new_entry,
-                          count=1
-                      )
+          # Modify the version header to include a link to the release
+          # Pattern: ## [version] - date (or just ## version - date without brackets)
+          version_pattern = rf'## (?:\[)?{re.escape(version)}(?:\])?'
+          if re.search(version_pattern, new_entry):
+              new_entry = re.sub(
+                  version_pattern,
+                  f'## [{version}]({release_url})',
+                  new_entry,
+                  count=1
+              )
 
-                  # Find the [Unreleased] section and insert after it
-                  # Pattern: find "## [Unreleased]" and any content after it until the next "## ["
-                  pattern = r'(## \[Unreleased\].*?)(\n## \[|$)'
+          # Find the end of the header (after the "Semantic Versioning" paragraph)
+          # Then insert the new entry right after it
+          header_pattern = r'(# Changelog.*?Semantic Versioning.*?\n)'
 
-                  def replacement(match):
-                      unreleased_section = match.group(1)
-                      next_section = match.group(2)
-                      
-                      # Insert the new entry between Unreleased and the next section
-                      return f"{unreleased_section}\n\n{new_entry}\n{next_section}"
+          match = re.search(header_pattern, changelog, re.DOTALL)
+          if match:
+              header_end = match.end()
+              updated_changelog = changelog[:header_end] + '\n' + new_entry + '\n' + changelog[header_end:]
+          else:
+              # Fallback: just prepend after first line
+              lines = changelog.split('\n', 1)
+              updated_changelog = lines[0] + '\n\n' + new_entry + '\n' + (lines[1] if len(lines) > 1 else '')
 
-                  updated_changelog = re.sub(pattern, replacement, changelog, count=1, flags=re.DOTALL)
+          # Write back
+          changelog_path.write_text(updated_changelog)
 
-                  # Write back
-                  changelog_path.write_text(updated_changelog)
+          print("✅ CHANGELOG.md updated successfully")
+          PYTHON_SCRIPT
 
-                  print("✅ CHANGELOG.md updated successfully")
-                  PYTHON_SCRIPT
+          echo "📄 Updated CHANGELOG.md:"
+          head -n 50 CHANGELOG.md
 
-                  echo "📄 Updated CHANGELOG.md:"
-                  head -n 50 CHANGELOG.md
+      - name: Commit and push changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            - name: Commit and push changelog
-              run: |
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
 
-                  git add CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📝 Update CHANGELOG for ${{ github.event.release.tag_name }}"
+            
+            # Push to main branch (we're in detached HEAD state from the release tag)
+            git push origin HEAD:main
+            
+            echo "✅ Changelog committed and pushed"
+          fi
 
-                  if git diff --staged --quiet; then
-                    echo "No changes to commit"
-                  else
-                    git commit -m "📝 Update CHANGELOG for ${{ github.event.release.tag_name }}"
-                    
-                    # Push to main branch (we're in detached HEAD state from the release tag)
-                    git push origin HEAD:main
-                    
-                    echo "✅ Changelog committed and pushed"
-                  fi
+      - name: Add changelog to release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
 
-            - name: Add changelog to release notes
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  VERSION="${{ github.event.release.tag_name }}"
+          # Create changelog link
+          # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
+          VERSION_ANCHOR=$(echo "$VERSION" | sed 's/\.//g')
+          CHANGELOG_DATE=$(date +%Y-%m-%d)
+          CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}---${CHANGELOG_DATE}"
 
-                  # Create changelog link
-                  # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
-                  VERSION_ANCHOR=$(echo "$VERSION" | sed 's/\.//g')
-                  CHANGELOG_DATE=$(date +%Y-%m-%d)
-                  CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}---${CHANGELOG_DATE}"
+          # Get current release notes
+          CURRENT_NOTES=$(gh release view "${{ github.event.release.tag_name }}" --json body --jq '.body')
 
-                  # Get current release notes
-                  CURRENT_NOTES=$(gh release view "${{ github.event.release.tag_name }}" --json body --jq '.body')
+          # Create combined notes file with changelog link
+          cat > combined_notes.md << EOF
+          ${CURRENT_NOTES}
 
-                  # Create combined notes file with changelog link
-                  cat > combined_notes.md << EOF
-                  ${CURRENT_NOTES}
+          ---
 
-                  ---
+          📝 **[View Release Changelog](${CHANGELOG_LINK})**
 
-                  📝 **[View Release Changelog](${CHANGELOG_LINK})**
+          EOF
 
-                  EOF
+          # Update release with combined notes
+          gh release edit "${{ github.event.release.tag_name }}" --notes-file combined_notes.md
 
-                  # Update release with combined notes
-                  gh release edit "${{ github.event.release.tag_name }}" --notes-file combined_notes.md
-
-                  echo "✅ Release notes updated with changelog link"
+          echo "✅ Release notes updated with changelog link"
