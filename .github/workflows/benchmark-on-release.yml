@@ -325,5 +325,14 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
                   git add .benchmark-history/
-                  git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python ${{ matrix.python-version }})" || true
-                  git push || true
+
+                  if git diff --staged --quiet; then
+                    echo "No benchmark files to commit"
+                  else
+                    git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python ${{ matrix.python-version }})"
+                    
+                    # Push to main branch (we're in detached HEAD state from the release tag)
+                    git push origin HEAD:main
+                    
+                    echo "✅ Benchmark history committed and pushed"
+                  fi
