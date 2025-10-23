@@ -16,7 +16,15 @@ fi
 # Ensure we're on main and up to date
 echo "📦 Preparing release $VERSION..."
 git checkout main
-git pull origin main
+git fetch origin
+git rebase origin/main
+
+# Check if rebase had conflicts
+if [ $? -ne 0 ]; then
+    echo "❌ Rebase failed - please resolve conflicts and try again"
+    git rebase --abort
+    exit 1
+fi
 
 # Get the previous release tag
 PREV_TAG=$(git tag --sort=-version:refname | head -1)
