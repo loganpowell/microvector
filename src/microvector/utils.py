@@ -11,6 +11,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Default embedding model (supports safetensors for security)
+EMBEDDING_MODEL = "avsolatorio/GIST-small-Embedding-v0"
+
 SimilarityMetrics = Literal["dot", "cosine", "euclidean", "derrida"]
 
 

@@ -6,7 +6,11 @@ import numpy as np
 from typing import Any, Callable, Optional, Union
 from numpy.typing import NDArray
 from microvector.embed import get_embeddings
-from microvector.utils import stringify_nonstring_target_values, SimilarityMetrics
+from microvector.utils import (
+    EMBEDDING_MODEL,
+    stringify_nonstring_target_values,
+    SimilarityMetrics,
+)
 from microvector.store import Store
 
 # Use concrete float32 type instead of generic floating[Any] for better type checking
@@ -24,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def get_embeddings_customized(
     key: str,
-    model: str = "infgrad/stella-base-en-v2",
+    model: str = EMBEDDING_MODEL,
     cache_folder: str = "./.cached_models",
 ) -> Callable[[Any], list[FloatArray]]:
     """
@@ -40,7 +44,7 @@ def vector_cache(
     key: str,
     collection: Optional[list[Any]] = None,
     cache: bool = True,
-    model: str = "infgrad/stella-base-en-v2",
+    model: str = EMBEDDING_MODEL,
     algo: SimilarityMetrics = "cosine",
     cache_vectors: str = "./.vector_cache",
     cache_models: str = "./.cached_models",

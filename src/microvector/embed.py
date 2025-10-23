@@ -9,6 +9,8 @@ import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer  # type: ignore
 
+from microvector.utils import EMBEDDING_MODEL
+
 # Use concrete float32 type instead of generic floating[Any] for better type checking
 FloatArray = NDArray[np.float32]
 
@@ -27,14 +29,17 @@ MAX_BATCH_SIZE = 16
 def get_embeddings(
     chunks: Union[list[str], list[dict[str, str]], str],
     key: Optional[str] = None,
-    model: str = "infgrad/stella-base-en-v2",
+    model: str = EMBEDDING_MODEL,
     cache_folder: str = "./.cached_models",
 ) -> list[FloatArray]:
     logger.debug("Starting get_embeddings function.")
     logger.info(f"Input chunks type: {type(chunks)}, key: {key}")
     logger.debug(f"Loading model: {model}")
     embedding_model = SentenceTransformer(
-        model, trust_remote_code=True, cache_folder=cache_folder
+        model,
+        trust_remote_code=True,
+        cache_folder=cache_folder,
+        model_kwargs={"use_safetensors": True},
     )
     # log out the first 5 chunks
     if isinstance(chunks, list):

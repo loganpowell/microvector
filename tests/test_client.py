@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from microvector import Client
+from microvector.utils import EMBEDDING_MODEL
 
 
 @pytest.fixture
@@ -41,7 +42,7 @@ def client(temp_cache_dirs: tuple[str, str]) -> Client:
     return Client(
         cache_models=cache_models,
         cache_vectors=cache_vectors,
-        embedding_model="infgrad/stella-base-en-v2",
+        embedding_model=EMBEDDING_MODEL,
     )
 
 
@@ -53,9 +54,7 @@ class TestClientInitialization:
         client = Client()
         assert client.cache_models == "./.cached_models"
         assert client.cache_vectors == "./.vector_cache"
-        # Note: Default model in cache.py and embed.py is currently "infgrad/stella-base-en-v2"
-        # but Client wrapper defaults to "infgrad/stella-base-en-v2"
-        assert client.embedding_model == "infgrad/stella-base-en-v2"
+        assert client.embedding_model == EMBEDDING_MODEL
 
     def test_client_init_custom_paths(self, temp_cache_dirs: tuple[str, str]) -> None:
         """Test client initialization with custom paths."""
@@ -63,7 +62,7 @@ class TestClientInitialization:
         client = Client(
             cache_models=cache_models,
             cache_vectors=cache_vectors,
-            embedding_model="infgrad/stella-base-en-v2",
+            embedding_model=EMBEDDING_MODEL,
         )
         assert client.cache_models == cache_models
         assert client.cache_vectors == cache_vectors

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from microvector.cache import vector_cache
-from microvector.utils import SimilarityMetrics
+from microvector.utils import EMBEDDING_MODEL, SimilarityMetrics
 
 logging.basicConfig(
     format="%(levelname)-1s [%(name)s:%(lineno)d] %(message)s",
@@ -57,7 +57,7 @@ class Client:
         self,
         cache_models: str = "./.cached_models",
         cache_vectors: str = "./.vector_cache",
-        embedding_model: str = "infgrad/stella-base-en-v2",
+        embedding_model: str = EMBEDDING_MODEL,
     ):
         self.cache_models = cache_models
         self.cache_vectors = cache_vectors
