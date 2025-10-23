@@ -1,0 +1,40 @@
+name: Publish to PyPI
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch: # Allows manual triggering
+
+permissions:
+    contents: read
+    id-token: write # Required for trusted publishing
+
+jobs:
+    build-and-publish:
+        name: Build and publish package
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # Full history for version detection
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v3
+              with:
+                  enable-cache: true
+
+            - name: Build package
+              run: uv build
+
+            - name: Publish to PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  # No password or token needed with trusted publishing!
+                  verbose: true
