@@ -388,7 +388,7 @@ class TestClientEdgeCases:
         )
 
         # Should create file with normalized name
-        expected_file = Path(cache_vectors) / "test_partition.pickle.gz"
+        expected_file = Path(cache_vectors) / "test_partition_name.pickle.gz"
         assert expected_file.exists()
 
     def test_search_with_collection_and_cache(self, client: Client) -> None:
