@@ -73,6 +73,13 @@ jobs:
 
                   # Extract metrics from output
                   metrics = {}
+                  
+                  # Get embedding model from microvector
+                  try:
+                      from microvector.utils import EMBEDDING_MODEL
+                      metrics['embedding_model'] = EMBEDDING_MODEL
+                  except:
+                      metrics['embedding_model'] = 'unknown'
 
                   # Embedding benchmarks
                   if match := re.search(r'Embedding 50 docs: ([\d.]+)s \(([\d.]+) docs/sec\)', output):
@@ -195,6 +202,7 @@ jobs:
 
                   **Release**: `{release_tag}`  
                   **Python Version**: `{python_version}`  
+                  **Embedding Model**: `{metrics.get('embedding_model', 'unknown')}`  
                   **Date**: {timestamp}  
                   **Commit**: `{os.getenv('GITHUB_SHA', 'N/A')[:7]}`
 

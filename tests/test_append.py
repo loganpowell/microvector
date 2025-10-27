@@ -82,6 +82,8 @@ class TestClientAppend:
         assert result["partition"] == "test_partition"
         assert result["documents_saved"] == 2
         assert result["append"] is False
+        assert "embedding_model" in result
+        assert result["embedding_model"]  # Should have a value
 
         # Verify we can search the store
         results = client.search(
@@ -106,6 +108,7 @@ class TestClientAppend:
 
         assert result["status"] == "success"
         assert result["append"] is True
+        assert "embedding_model" in result
 
         # Verify we can search the store
         results = client.search(

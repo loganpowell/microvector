@@ -106,7 +106,9 @@ client.save(
     "partition": "my_documents",
     "documents_saved": 42,
     "key": "text",
-    "algorithm": "cosine"
+    "algorithm": "cosine",
+    "append": False,
+    "embedding_model": "avsolatorio/GIST-small-Embedding-v0"
 }
 ```
 

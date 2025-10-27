@@ -103,6 +103,7 @@ class TestClientSave:
         assert result["documents_saved"] == len(sample_collection)
         assert result["key"] == "text"
         assert result["algorithm"] == "cosine"
+        assert "embedding_model" in result
 
     def test_save_creates_pickle_file(
         self,

@@ -132,6 +132,7 @@ class Client:
             "key": key,
             "algorithm": algo,
             "append": append,
+            "embedding_model": self.embedding_model,
         }
 
     def search(
