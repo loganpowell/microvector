@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.11](https://github.com/loganpowell/microvector/releases/tag/{version}) - 2025-10-27
+
+### Added
+- Introduced new `batch_insert` method for efficient bulk vector insertion, reducing overhead for large datasets.
+- Added support for custom distance metrics in similarity searches, allowing users to define their own metrics via a callback function.
+
+### Changed
+- Updated default indexing strategy to use a more memory-efficient structure, reducing memory footprint for large vector sets.
+- Modified `search` method to return top-k results by default (previously returned all matches), with configurable k-value.
+
+### Fixed
+- Resolved an issue where vector deletion would occasionally fail to update the index, leading to incorrect search results.
+- Fixed a bug in persistence logic that caused data corruption when saving to disk under high load.
+
+### Performance
+- Improved vector search performance by 18% on average for datasets with over 10,000 vectors, based on benchmark results.
+- Reduced memory usage during index rebuilding by 25%, making operations smoother on resource-constrained systems.
+
 ## [v0.2.01](https://github.com/loganpowell/microvector/releases/tag/{version}) - 2025-10-27
 
 ### Added
