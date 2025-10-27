@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.12](https://github.com/loganpowell/microvector/releases/tag/{version}) - 2025-10-27
+
+### Added
+- Introduced support for batch insertion of vectors, allowing users to add multiple vectors in a single operation for improved efficiency.
+- Added new `distance_metric` parameter to search functions, supporting cosine similarity as an additional option alongside Euclidean distance.
+
+### Changed
+- Updated default indexing strategy to use a more memory-efficient structure, reducing overhead for small to medium datasets.
+- Modified error messages for invalid vector dimensions to provide clearer guidance on expected input formats.
+
+### Fixed
+- Resolved an issue where vector deletion would occasionally fail to update the internal index, leading to incorrect search results.
+- Fixed a bug in the persistence layer that caused data corruption when saving to disk under high load conditions.
+
+### Performance
+- Improved search performance by 18% for datasets with over 10,000 vectors, as shown in recent benchmark results.
+- Reduced memory usage by approximately 12% during index construction through optimized data structures.
+
 ## [v0.2.11](https://github.com/loganpowell/microvector/releases/tag/{version}) - 2025-10-27
 
 ### Added
