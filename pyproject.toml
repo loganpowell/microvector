@@ -87,6 +87,7 @@ extend-exclude = ["README.md"]
 [tool.pytest.ini_options]
 log_cli_level = "INFO"
 xfail_strict = true
+pythonpath = ["src"]
 addopts = """
     --color=yes
     --capture=fd
