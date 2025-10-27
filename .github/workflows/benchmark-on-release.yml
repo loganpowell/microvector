@@ -196,13 +196,21 @@ jobs:
                   python_version = "3.11"
                   release_tag = "${{ github.event.release.tag_name }}" or "manual-run"
                   timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+                  
+                  # Get embedding model and create HuggingFace link
+                  embedding_model = metrics.get('embedding_model', 'unknown')
+                  if embedding_model != 'unknown':
+                      hf_link = f"https://huggingface.co/{embedding_model}"
+                      embedding_model_display = f"[`{embedding_model}`]({hf_link})"
+                  else:
+                      embedding_model_display = '`unknown`'
 
                   # Build markdown summary
                   summary = f"""# 🚀 Microvector Performance Report
 
                   **Release**: `{release_tag}`  
                   **Python Version**: `{python_version}`  
-                  **Embedding Model**: `{metrics.get('embedding_model', 'unknown')}`  
+                  **Embedding Model**: {embedding_model_display}  
                   **Date**: {timestamp}  
                   **Commit**: `{os.getenv('GITHUB_SHA', 'N/A')[:7]}`
 
