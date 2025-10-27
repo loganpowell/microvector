@@ -63,7 +63,7 @@ echo ""
 
 # Run tests
 echo "🧪 Running tests..."
-uv run pytest
+uv run --with . pytest
 
 # Build the package
 echo "🔨 Building package..."
