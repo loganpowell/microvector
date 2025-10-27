@@ -86,7 +86,7 @@ class TestClientAppend:
         # Verify we can search the store
         results = client.search(
             term="programming",
-            partition_name="test_partition",
+            partition="test_partition",
             key="text",
             top_k=2,
         )
@@ -110,7 +110,7 @@ class TestClientAppend:
         # Verify we can search the store
         results = client.search(
             term="programming",
-            partition_name="test_partition",
+            partition="test_partition",
             key="text",
             top_k=2,
         )
@@ -147,7 +147,7 @@ class TestClientAppend:
         # Verify all 4 documents are searchable
         results = client.search(
             term="programming",
-            partition_name="test_partition",
+            partition="test_partition",
             key="text",
             top_k=4,
         )
@@ -189,7 +189,7 @@ class TestClientAppend:
         # Verify only new documents are searchable
         results = client.search(
             term="AI neural networks",
-            partition_name="test_partition",
+            partition="test_partition",
             key="text",
             top_k=4,
         )
@@ -238,7 +238,7 @@ class TestClientAppend:
         # Verify all 5 documents are searchable
         results = client.search(
             term="programming",
-            partition_name="test_partition",
+            partition="test_partition",
             key="text",
             top_k=5,
         )
@@ -274,7 +274,7 @@ class TestClientAppend:
             # Verify search works
             results = client.search(
                 term="programming",
-                partition_name=partition,
+                partition=partition,
                 key="text",
                 top_k=3,
                 algo=algo,  # type: ignore
@@ -295,7 +295,7 @@ class TestClientSearchWithAppend:
 
         results = client.search(
             term="Python",
-            partition_name="temp_search",
+            partition="temp_search",
             key="text",
             collection=collection,
             cache=True,
@@ -321,7 +321,7 @@ class TestClientSearchWithAppend:
         new_docs = [{"text": "Kotlin is a modern JVM language"}]
         results = client.search(
             term="programming",
-            partition_name="search_append_test",
+            partition="search_append_test",
             key="text",
             collection=new_docs,
             cache=True,
@@ -354,7 +354,7 @@ class TestVectorSearchAppend:
         new_collection = [{"text": "Completely new document"}]
         results = client.search(
             term="document",
-            partition_name="vector_search_test",
+            partition="vector_search_test",
             key="text",
             collection=new_collection,
             cache=True,
@@ -385,7 +385,7 @@ class TestVectorSearchAppend:
         new_collection = [{"text": "Swift is used for iOS development"}]
         results = client.search(
             term="programming development",
-            partition_name="vector_search_append",
+            partition="vector_search_append",
             key="text",
             collection=new_collection,
             cache=True,
@@ -425,7 +425,7 @@ class TestAppendEdgeCases:
         # Original documents should still be there
         results = client.search(
             term="programming",
-            partition_name="test_empty_append",
+            partition="test_empty_append",
             key="text",
             top_k=2,
         )
@@ -438,7 +438,7 @@ class TestAppendEdgeCases:
 
         results = client.search(
             term="Document",
-            partition_name="no_cache_test",
+            partition="no_cache_test",
             key="text",
             collection=collection,
             cache=False,
@@ -483,7 +483,7 @@ class TestAppendEdgeCases:
         # Should have replacement + additional (4 total)
         results = client.search(
             term="AI programming neural networks",
-            partition_name="replace_append_test",
+            partition="replace_append_test",
             key="text",
             top_k=5,
         )

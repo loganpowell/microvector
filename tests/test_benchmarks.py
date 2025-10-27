@@ -338,7 +338,7 @@ class TestClientPerformance:
         # Perform search
         results = client.search(
             term="document about topic",
-            partition_name="benchmark_test",
+            partition="benchmark_test",
             key="text",
             top_k=10,
         )

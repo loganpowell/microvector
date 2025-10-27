@@ -137,7 +137,7 @@ class Client:
     def search(
         self,
         term: str,
-        partition_name: str,
+        partition: str,
         key: str = "text",
         top_k: int = 5,
         collection: Optional[list[dict[str, Any]]] = None,
@@ -185,7 +185,7 @@ class Client:
             ...     cache=False
             ... )
         """
-        logger.info("Searching partition '%s' for term: '%s'", partition_name, term)
+        logger.info("Searching partition '%s' for term: '%s'", partition, term)
 
         # Check for empty search term
         if not term or term.strip() == "":
@@ -194,7 +194,7 @@ class Client:
 
         # Use vector_cache to get the querier function
         querier = vector_cache(
-            partition=partition_name,
+            partition=partition,
             key=key,
             collection=collection,
             cache=cache,
@@ -206,7 +206,7 @@ class Client:
         )
 
         if querier is None:
-            logger.error("Failed to create querier for partition '%s'", partition_name)
+            logger.error("Failed to create querier for partition '%s'", partition)
             return None
 
         # Execute the query

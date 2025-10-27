@@ -167,7 +167,7 @@ class TestClientSearch:
         # Then search
         results = client.search(
             term="programming languages",
-            partition_name="search_test",
+            partition="search_test",
             key="text",
             top_k=3,
         )
@@ -188,7 +188,7 @@ class TestClientSearch:
 
         results = client.search(
             term="dog",
-            partition_name="relevance_test",
+            partition="relevance_test",
             key="text",
             top_k=2,
         )
@@ -212,7 +212,7 @@ class TestClientSearch:
         for k in [1, 2, 3, 5]:
             results = client.search(
                 term="technology",
-                partition_name="topk_test",
+                partition="topk_test",
                 key="text",
                 top_k=k,
             )
@@ -229,7 +229,7 @@ class TestClientSearch:
 
         results = client.search(
             term="pet animals",
-            partition_name="temp_partition",
+            partition="temp_partition",
             key="text",
             top_k=2,
             collection=temp_collection,  # type: ignore
@@ -254,7 +254,7 @@ class TestClientSearch:
 
             results = client.search(
                 term="programming",
-                partition_name=f"algo_test_{algo}",
+                partition=f"algo_test_{algo}",
                 key="text",
                 top_k=3,
                 algo=algo,  # type: ignore
@@ -288,7 +288,7 @@ class TestClientSearch:
         # Should be able to search without providing collection again
         results = new_client.search(
             term="programming",
-            partition_name="persistent_test",
+            partition="persistent_test",
             key="text",
             top_k=2,
         )
@@ -307,7 +307,7 @@ class TestClientSearch:
 
         results = client.search(
             term="",
-            partition_name="empty_term_test",
+            partition="empty_term_test",
             key="text",
         )
 
@@ -346,7 +346,7 @@ class TestClientSearch:
 
         results = client.search(
             term="US",
-            partition_name="Country",
+            partition="Country",
             key="jurisdictionName",
             top_k=5,
         )
@@ -401,7 +401,7 @@ class TestClientEdgeCases:
         # Should save the collection when cache=True
         results = client.search(
             term="document",
-            partition_name="cache_test",
+            partition="cache_test",
             key="text",
             collection=collection,  # type: ignore
             cache=True,
@@ -412,7 +412,7 @@ class TestClientEdgeCases:
         # Should be able to search again without collection
         results2 = client.search(
             term="document",
-            partition_name="cache_test",
+            partition="cache_test",
             key="text",
         )
 
@@ -443,7 +443,7 @@ class TestClientIntegration:
         # Search for ML-related content
         ml_results = client.search(
             term="artificial intelligence and machine learning",
-            partition_name="ml_docs",
+            partition="ml_docs",
             key="text",
             top_k=3,
         )
@@ -456,7 +456,7 @@ class TestClientIntegration:
         # Search for programming content
         prog_results = client.search(
             term="programming languages",
-            partition_name="ml_docs",
+            partition="ml_docs",
             key="text",
             top_k=2,
         )
@@ -482,13 +482,13 @@ class TestClientIntegration:
         # Search each partition
         animal_results = client.search(
             term="pet sounds",
-            partition_name="animals",
+            partition="animals",
             key="text",
             top_k=2,
         )
         tech_results = client.search(
             term="software development",
-            partition_name="tech",
+            partition="tech",
             key="text",
             top_k=2,
         )
