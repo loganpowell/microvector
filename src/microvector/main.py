@@ -67,10 +67,11 @@ class Client:
 
     def save(
         self,
-        partition_name: str,
+        partition: str,
         collection: list[dict[str, Any]],
         key: str = "text",
         algo: SimilarityMetrics = "cosine",
+        append: bool = False,
     ) -> dict[str, Any]:
         """
         Save a collection to the vector store.
@@ -83,25 +84,37 @@ class Client:
                 containing at least the field specified by `key`
             key: The field name in each document to vectorize. Defaults to "text"
             algo: Similarity metric to use. One of: "cosine", "dot", "euclidean", "derrida"
+            append: If True, adds new vectors to existing cache. If False (default),
+                replaces existing cache with new vectors
 
         Returns:
             Dictionary with status information about the save operation
 
         Example:
-            >>> client.save(
-            ...     partition_name="products",
-            ...     collection=[
-            ...         {"text": "laptop computer", "price": 999},
-            ...         {"text": "wireless mouse", "price": 29},
-            ...     ],
-            ...     key="text"
-            ... )
+        >>> client.save(
+        ...     partition_name="products",
+        ...     collection=[
+        ...         {"text": "laptop computer", "price": 999},
+        ...         {"text": "wireless mouse", "price": 29},
+        ...     ],
+        ...     key="text"
+        ... )
+        >>>
+        >>> # Append more documents to existing partition
+        >>> client.save(
+        ...     partition_name="products",
+        ...     collection=[
+        ...         {"text": "keyboard", "price": 79},
+        ...     ],
+        ...     key="text",
+        ...     append=True
+        ... )
         """
-        logger.info("Saving collection to partition: %s", partition_name)
+        logger.info("Saving collection to partition: %s (append=%s)", partition, append)
 
         # Use vector_cache to create and save the vector store
         _ = vector_cache(
-            partition=partition_name,
+            partition=partition,
             key=key,
             collection=collection,
             cache=True,
@@ -109,14 +122,16 @@ class Client:
             algo=algo,
             cache_vectors=self.cache_vectors,
             cache_models=self.cache_models,
+            append=append,
         )
 
         return {
             "status": "success",
-            "partition": partition_name,
+            "partition": partition,
             "documents_saved": len(collection),
             "key": key,
             "algorithm": algo,
+            "append": append,
         }
 
     def search(
@@ -128,6 +143,7 @@ class Client:
         collection: Optional[list[dict[str, Any]]] = None,
         cache: bool = True,
         algo: SimilarityMetrics = "cosine",
+        append: bool = False,
     ) -> Optional[list[dict[str, Any]]]:
         """
         Search for similar documents in a vector store.
@@ -144,6 +160,9 @@ class Client:
                 If provided with cache=False, creates a temporary in-memory store
             cache: Whether to persist the vector store to disk. Defaults to True
             algo: Similarity metric to use. One of: "cosine", "dot", "euclidean", "derrida"
+            append: If True, adds new vectors to existing cache. If False (default),
+                replaces existing cache with new vectors. Only relevant when providing
+                a collection with cache=True
 
         Returns:
             List of matching documents with similarity scores, or None if no results
@@ -183,6 +202,7 @@ class Client:
             algo=algo,
             cache_vectors=self.cache_vectors,
             cache_models=self.cache_models,
+            append=append,
         )
 
         if querier is None:

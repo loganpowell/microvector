@@ -42,9 +42,14 @@ def vector_cache(
     algo: SimilarityMetrics = "cosine",
     cache_vectors: str = "./.vector_cache",
     cache_models: str = "./.cached_models",
+    append: bool = False,
 ) -> Callable[[str, int], list[dict[str, Any]]]:
     """
     Wraps multiple cached vector stores with partitioned access
+
+    Args:
+        append: If True, adds new vectors to existing cache. If False (default),
+                replaces existing cache with new vectors.
     """
     # Load the vector store for the specified partition
     logger.info("Looking for partition: %s", partition)
@@ -90,6 +95,32 @@ def vector_cache(
                 algo=algo,
             )
             db.load(str(path))
+
+            # If append mode and we have a new collection, add it to the existing store
+            if append and formatted_collection:
+                logger.info(
+                    "Appending %d documents to existing vector store",
+                    len(formatted_collection),
+                )
+                db.add_collection(formatted_collection)
+                db.save(str(path))
+                logger.info("Updated collection saved to %s", path)
+            # If not append mode and we have a new collection, replace the existing store
+            elif not append and formatted_collection:
+                logger.info(
+                    "Replacing existing vector store with %d new documents",
+                    len(formatted_collection),
+                )
+                db = Store(
+                    formatted_collection,
+                    key=key,
+                    embedding_function=embeddings_lambda(
+                        key=key, model=model, cache_folder=cache_models
+                    ),
+                    algo=algo,
+                )
+                db.save(str(path))
+                logger.info("Replaced collection saved to %s", path)
     else:
         db = Store(
             formatted_collection,

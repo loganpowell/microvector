@@ -60,7 +60,9 @@ class PerformanceMetrics:
             {
                 "cpu_percent": round(self.end_cpu, 2),
                 "memory_mb": round(self.end_memory / 1024 / 1024, 2),
-                "memory_delta_mb": round((self.end_memory - self.start_memory) / 1024 / 1024, 2),
+                "memory_delta_mb": round(
+                    (self.end_memory - self.start_memory) / 1024 / 1024, 2
+                ),
             }
         )
 
@@ -70,7 +72,10 @@ class PerformanceMetrics:
 @pytest.fixture
 def benchmark_data_small() -> list[dict[str, str]]:
     """Small dataset for benchmarking (50 documents)."""
-    return [{"text": f"Document {i} about topic {i % 10} with some content", "id": str(i)} for i in range(50)]
+    return [
+        {"text": f"Document {i} about topic {i % 10} with some content", "id": str(i)}
+        for i in range(50)
+    ]
 
 
 @pytest.fixture
@@ -133,7 +138,9 @@ class TestEmbeddingPerformance:
         self._save_metrics(metrics_file, result)
 
         # Print for visibility
-        print(f"\n⏱️  Embedding 50 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)")
+        print(
+            f"\n⏱️  Embedding 50 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)"
+        )
 
     @pytest.mark.benchmark
     def test_embedding_500_documents(
@@ -161,7 +168,9 @@ class TestEmbeddingPerformance:
 
         self._save_metrics(metrics_file, result)
 
-        print(f"\n⏱️  Embedding 500 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)")
+        print(
+            f"\n⏱️  Embedding 500 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)"
+        )
 
     @pytest.mark.benchmark
     def test_embedding_2000_documents(
@@ -189,7 +198,9 @@ class TestEmbeddingPerformance:
 
         self._save_metrics(metrics_file, result)
 
-        print(f"\n⏱️  Embedding 2000 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)")
+        print(
+            f"\n⏱️  Embedding 2000 docs: {result['duration_seconds']}s ({result['embeddings_per_second']} docs/sec)"
+        )
 
     @staticmethod
     def _save_metrics(metrics_file: Path, result: dict[str, Any]) -> None:
@@ -220,7 +231,9 @@ class TestSearchPerformance:
         metrics = PerformanceMetrics("search_500_docs")
 
         # Setup: Create store with 500 documents using shared cache
-        embedding_fn = lambda docs: get_embeddings(docs, key="text", cache_folder=shared_model_cache)
+        embedding_fn = lambda docs: get_embeddings(
+            docs, key="text", cache_folder=shared_model_cache
+        )
         store = Store(
             collection=benchmark_data_medium,
             key="text",
@@ -260,7 +273,9 @@ class TestSearchPerformance:
         metrics = PerformanceMetrics("search_2000_docs")
 
         # Setup: Create store with 2000 documents using shared cache
-        embedding_fn = lambda docs: get_embeddings(docs, key="text", cache_folder=shared_model_cache)
+        embedding_fn = lambda docs: get_embeddings(
+            docs, key="text", cache_folder=shared_model_cache
+        )
         store = Store(
             collection=benchmark_data_large,
             key="text",
@@ -316,7 +331,7 @@ class TestClientPerformance:
 
         # Save collection
         client.save(
-            partition_name="benchmark_test",
+            partition="benchmark_test",
             collection=benchmark_data_medium,
         )
 
@@ -360,7 +375,9 @@ class TestMemoryUsage:
         metrics.start()
 
         # Create store with shared cache to avoid model reloading
-        embedding_fn = lambda docs: get_embeddings(docs, key="text", cache_folder=shared_model_cache)
+        embedding_fn = lambda docs: get_embeddings(
+            docs, key="text", cache_folder=shared_model_cache
+        )
         store = Store(
             collection=benchmark_data_large,
             key="text",
@@ -379,11 +396,15 @@ class TestMemoryUsage:
 
         TestEmbeddingPerformance._save_metrics(metrics_file, result)
 
-        print(f"\n💾 Memory usage (2000 docs): {result['memory_mb']} MB (delta: {result['memory_delta_mb']} MB)")
+        print(
+            f"\n💾 Memory usage (2000 docs): {result['memory_mb']} MB (delta: {result['memory_delta_mb']} MB)"
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)
-def save_final_metrics(request: Any, tmp_path_factory: Any) -> Generator[None, None, None]:
+def save_final_metrics(
+    request: Any, tmp_path_factory: Any
+) -> Generator[None, None, None]:
     """Save all collected metrics to a file for CI/CD reporting."""
     # This will run after all tests complete
     yield

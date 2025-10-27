@@ -15,6 +15,7 @@ def vector_search(
     collection: Optional[Any] = None,
     cache: bool = False,
     algo: SimilarityMetrics = "cosine",
+    append: bool = False,
 ) -> Optional[List[Dict[str, Any]]]:
     """
     Search a vector store with the provided query.
@@ -25,6 +26,10 @@ def vector_search(
         - key (str) The key within the collection that is vectorized
         - top_k (int) The number of top results to return.
         - collection (Any | None) Optional collection to filter the results.
+        - cache (bool) Whether to persist the vector store to disk.
+        - algo (SimilarityMetrics) Similarity metric to use.
+        - append (bool) If True, adds new vectors to existing cache. If False (default),
+            replaces existing cache with new vectors.
 
     Examples:
     """
@@ -41,6 +46,7 @@ def vector_search(
         collection=collection,
         cache=cache,
         algo=algo,
+        append=append,
     )
     if querier is None:
         logger.error(

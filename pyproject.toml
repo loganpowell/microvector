@@ -57,7 +57,7 @@ build-backend = "hatchling.build"
 source = "uv-dynamic-versioning"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/microvector"]
+packages = ["src/microvector", "scripts"]
 
 
 [tool.uv.sources]
@@ -69,6 +69,9 @@ torch = { index = "pytorch-cpu" }
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[project.scripts]
+test = "scripts.test:main"
 
 [tool.pyright]
 typeCheckingMode = "standard"

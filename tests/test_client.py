@@ -69,7 +69,9 @@ class TestClientInitialization:
         assert os.path.exists(cache_models)
         assert os.path.exists(cache_vectors)
 
-    def test_client_creates_cache_directories(self, temp_cache_dirs: tuple[str, str]) -> None:
+    def test_client_creates_cache_directories(
+        self, temp_cache_dirs: tuple[str, str]
+    ) -> None:
         """Test that client creates cache directories if they don't exist."""
         cache_models, cache_vectors = temp_cache_dirs
         # Model cache is now session-scoped and already exists
@@ -87,10 +89,12 @@ class TestClientInitialization:
 class TestClientSave:
     """Tests for Client.save() method."""
 
-    def test_save_returns_success_info(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_save_returns_success_info(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test that save returns proper status information."""
         result = client.save(
-            partition_name="test_partition",
+            partition="test_partition",
             collection=sample_collection,
         )
 
@@ -109,7 +113,7 @@ class TestClientSave:
         """Test that save creates a pickle file in the cache directory."""
         _, cache_vectors = temp_cache_dirs
         client.save(
-            partition_name="test_partition",
+            partition="test_partition",
             collection=sample_collection,
         )
 
@@ -123,7 +127,7 @@ class TestClientSave:
             {"description": "Second item", "value": 2},
         ]
         result = client.save(
-            partition_name="custom_key_test",
+            partition="custom_key_test",
             collection=collection,  # type: ignore
             key="description",
         )
@@ -131,13 +135,15 @@ class TestClientSave:
         assert result["status"] == "success"
         assert result["key"] == "description"
 
-    def test_save_with_different_algorithms(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_save_with_different_algorithms(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test saving with different similarity algorithms."""
         algorithms = ["cosine", "dot", "euclidean", "derrida"]
 
         for algo in algorithms:
             result = client.save(
-                partition_name=f"test_{algo}",
+                partition=f"test_{algo}",
                 collection=sample_collection,
                 algo=algo,  # type: ignore
             )
@@ -148,11 +154,13 @@ class TestClientSave:
 class TestClientSearch:
     """Tests for Client.search() method."""
 
-    def test_search_returns_results(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_search_returns_results(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test that search returns relevant results."""
         # First save the collection
         client.save(
-            partition_name="search_test",
+            partition="search_test",
             collection=sample_collection,
         )
 
@@ -169,10 +177,12 @@ class TestClientSearch:
         assert all("similarity_score" in r for r in results)
         assert all("text" in r for r in results)
 
-    def test_search_relevance(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_search_relevance(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test that search returns relevant results in order."""
         client.save(
-            partition_name="relevance_test",
+            partition="relevance_test",
             collection=sample_collection,
         )
 
@@ -190,10 +200,12 @@ class TestClientSearch:
         # Should contain references to dogs
         assert any("dog" in r["text"].lower() for r in results)
 
-    def test_search_top_k_limit(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_search_top_k_limit(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test that top_k parameter limits results."""
         client.save(
-            partition_name="topk_test",
+            partition="topk_test",
             collection=sample_collection,
         )
 
@@ -227,13 +239,15 @@ class TestClientSearch:
         assert results is not None
         assert len(results) <= 2
 
-    def test_search_with_different_algorithms(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_search_with_different_algorithms(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test searching with different similarity algorithms."""
         algorithms = ["cosine", "dot", "euclidean"]
 
         for algo in algorithms:
             client.save(
-                partition_name=f"algo_test_{algo}",
+                partition=f"algo_test_{algo}",
                 collection=sample_collection,
                 algo=algo,  # type: ignore
             )
@@ -260,7 +274,7 @@ class TestClientSearch:
 
         # Save with first client
         client.save(
-            partition_name="persistent_test",
+            partition="persistent_test",
             collection=sample_collection,
         )
 
@@ -282,10 +296,12 @@ class TestClientSearch:
         assert results is not None
         assert len(results) > 0
 
-    def test_search_empty_term_returns_none(self, client: Client, sample_collection: list[dict[str, str]]) -> None:
+    def test_search_empty_term_returns_none(
+        self, client: Client, sample_collection: list[dict[str, str]]
+    ) -> None:
         """Test that searching with empty term returns None."""
         client.save(
-            partition_name="empty_term_test",
+            partition="empty_term_test",
             collection=sample_collection,
         )
 
@@ -323,7 +339,7 @@ class TestClientSearch:
         ]
 
         client.save(
-            partition_name="Country",
+            partition="Country",
             collection=collection,
             key="jurisdictionName",
         )
@@ -351,7 +367,7 @@ class TestClientEdgeCases:
     def test_save_empty_collection(self, client: Client) -> None:
         """Test saving an empty collection."""
         result = client.save(
-            partition_name="empty_collection",
+            partition="empty_collection",
             collection=[],
         )
         assert result["status"] == "success"
@@ -367,7 +383,7 @@ class TestClientEdgeCases:
         _, cache_vectors = temp_cache_dirs
 
         client.save(
-            partition_name="Test Partition Name",
+            partition="Test Partition Name",
             collection=sample_collection,
         )
 
@@ -419,7 +435,7 @@ class TestClientIntegration:
 
         # Save collection
         save_result = client.save(
-            partition_name="ml_docs",
+            partition="ml_docs",
             collection=collection,
         )
         assert save_result["status"] == "success"
@@ -460,8 +476,8 @@ class TestClientIntegration:
         ]
 
         # Save to different partitions
-        client.save(partition_name="animals", collection=animals)
-        client.save(partition_name="tech", collection=tech)
+        client.save(partition="animals", collection=animals)
+        client.save(partition="tech", collection=tech)
 
         # Search each partition
         animal_results = client.search(
