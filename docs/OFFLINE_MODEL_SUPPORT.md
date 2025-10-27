@@ -98,8 +98,8 @@ save_model_for_offline_use(cache_folder='./models')
 
 # Later: use offline (no internet required)
 client = Client(cache_models='./models')
-client.save(partition_name="docs", collection=documents)
-results = client.search(term="query", partition_name="docs")
+client.save(partition="docs", collection=documents)
+results = client.search(term="query", partition="docs")
 ```
 
 ## Model Storage Format

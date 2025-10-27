@@ -373,7 +373,7 @@ class TestClientEdgeCases:
         assert result["status"] == "success"
         assert result["documents_saved"] == 0
 
-    def test_partition_name_normalization(
+    def test_partition_normalization(
         self,
         client: Client,
         sample_collection: list[dict[str, str]],
@@ -388,7 +388,7 @@ class TestClientEdgeCases:
         )
 
         # Should create file with normalized name
-        expected_file = Path(cache_vectors) / "test_partition_name.pickle.gz"
+        expected_file = Path(cache_vectors) / "test_partition.pickle.gz"
         assert expected_file.exists()
 
     def test_search_with_collection_and_cache(self, client: Client) -> None:

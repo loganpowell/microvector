@@ -33,7 +33,7 @@ class Client:
     Example:
         >>> client = Client()
         >>> client.save(
-        ...     partition_name="my_data",
+        ...     partition="my_data",
         ...     collection=[
         ...         {"text": "hello world", "metadata": {"source": "test"}},
         ...         {"text": "goodbye world", "metadata": {"source": "test"}},
@@ -41,7 +41,7 @@ class Client:
         ... )
         >>> results = client.search(
         ...     term="hello",
-        ...     partition_name="my_data",
+        ...     partition="my_data",
         ...     key="text",
         ...     top_k=5
         ... )
@@ -79,7 +79,7 @@ class Client:
         Creates embeddings for the collection and persists them to disk.
 
         Args:
-            partition_name: Name of the partition to save to
+            partition: Name of the partition to save to
             collection: List of documents to save. Each document should be a dict
                 containing at least the field specified by `key`
             key: The field name in each document to vectorize. Defaults to "text"
@@ -92,7 +92,7 @@ class Client:
 
         Example:
         >>> client.save(
-        ...     partition_name="products",
+        ...     partition="products",
         ...     collection=[
         ...         {"text": "laptop computer", "price": 999},
         ...         {"text": "wireless mouse", "price": 29},
@@ -102,7 +102,7 @@ class Client:
         >>>
         >>> # Append more documents to existing partition
         >>> client.save(
-        ...     partition_name="products",
+        ...     partition="products",
         ...     collection=[
         ...         {"text": "keyboard", "price": 79},
         ...     ],
@@ -153,7 +153,7 @@ class Client:
 
         Args:
             term: Search query string
-            partition_name: Name of the partition to search
+            partition: Name of the partition to search
             key: The field name in documents that was vectorized. Defaults to "text"
             top_k: Number of top results to return. Defaults to 5
             collection: Optional collection to create a new vector store from.
@@ -171,7 +171,7 @@ class Client:
             >>> # Search existing cached vectors
             >>> results = client.search(
             ...     term="laptop",
-            ...     partition_name="products",
+            ...     partition="products",
             ...     key="text",
             ...     top_k=3
             ... )
@@ -179,7 +179,7 @@ class Client:
             >>> # Create and search temporary vector store
             >>> results = client.search(
             ...     term="laptop",
-            ...     partition_name="temp",
+            ...     partition="temp",
             ...     key="text",
             ...     collection=[{"text": "laptop computer"}, {"text": "desktop PC"}],
             ...     cache=False

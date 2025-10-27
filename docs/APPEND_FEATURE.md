@@ -37,7 +37,7 @@ client = Client()
 
 # Create initial vector store
 client.save(
-    partition_name="products",
+    partition="products",
     collection=[
         {"text": "laptop computer", "price": 999},
         {"text": "wireless mouse", "price": 29},
@@ -48,7 +48,7 @@ client.save(
 
 # Add more products to the existing store
 client.save(
-    partition_name="products",
+    partition="products",
     collection=[
         {"text": "mechanical keyboard", "price": 79},
         {"text": "USB-C cable", "price": 15},
@@ -60,7 +60,7 @@ client.save(
 # Now the store contains all 4 products
 results = client.search(
     term="computer accessories",
-    partition_name="products",
+    partition="products",
     key="text",
     top_k=5
 )
@@ -75,14 +75,14 @@ client = Client()
 
 # Initial save
 client.save(
-    partition_name="docs",
+    partition="docs",
     collection=[{"text": "Document 1"}, {"text": "Document 2"}],
     key="text"
 )
 
 # Append more documents (now has 4 total)
 client.save(
-    partition_name="docs",
+    partition="docs",
     collection=[{"text": "Document 3"}, {"text": "Document 4"}],
     key="text",
     append=True
@@ -90,7 +90,7 @@ client.save(
 
 # Replace all documents (now has only 1 document)
 client.save(
-    partition_name="docs",
+    partition="docs",
     collection=[{"text": "New Document"}],
     key="text",
     append=False  # Replaces everything
@@ -107,7 +107,7 @@ client = Client()
 # Search and optionally append new documents in one call
 results = client.search(
     term="machine learning",
-    partition_name="articles",
+    partition="articles",
     key="text",
     collection=[
         {"text": "New article about deep learning"},

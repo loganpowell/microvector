@@ -32,7 +32,7 @@ sample_collection = [
 print("Example 1: Saving data to vector store")
 print("=" * 50)
 result = mv_client.save(
-    partition_name="example_partition",
+    partition="example_partition",
     collection=sample_collection,
 )
 print(f"Save result: {result}\n")
@@ -42,7 +42,7 @@ print("Example 2: Searching existing data")
 print("=" * 50)
 search_results = mv_client.search(
     term="programming languages",
-    partition_name="example_partition",
+    partition="example_partition",
     key="text",
     top_k=3,
     algo="cosine",
@@ -64,7 +64,7 @@ temp_collection = [
 
 temp_results = mv_client.search(
     term="pet animals",
-    partition_name="temp_partition",
+    partition="temp_partition",
     key="text",
     top_k=2,
     collection=temp_collection,

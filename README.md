@@ -38,7 +38,7 @@ client = Client()
 
 # Save a collection with automatic persistence
 client.save(
-    partition_name="my_documents",
+    partition="my_documents",
     collection=[
         {"text": "Python is a popular programming language", "category": "tech"},
         {"text": "Machine learning models learn from data", "category": "ai"},
@@ -49,7 +49,7 @@ client.save(
 # Search the persisted collection
 results = client.search(
     term="artificial intelligence and ML",
-    partition_name="my_documents",
+    partition="my_documents",
     key="text",
     top_k=5
 )
@@ -84,7 +84,7 @@ Save a collection to a persistent vector store.
 
 ```python
 client.save(
-    partition_name: str,
+    partition: str,
     collection: list[dict[str, Any]],
     key: str = "text",
     algo: str = "cosine"
@@ -93,7 +93,7 @@ client.save(
 
 **Parameters:**
 
-- `partition_name`: Unique identifier for this vector store
+- `partition`: Unique identifier for this vector store
 - `collection`: List of documents (dictionaries) to vectorize
 - `key`: Field name to use for embedding (default: "text")
 - `algo`: Similarity metric - `"cosine"`, `"dot"`, `"euclidean"`, or `"derrida"`
@@ -114,7 +114,7 @@ client.save(
 
 ```python
 result = client.save(
-    partition_name="products",
+    partition="products",
     collection=[
         {"description": "Wireless headphones", "price": 99.99},
         {"description": "Smart watch", "price": 299.99},
@@ -131,7 +131,7 @@ Search a vector store with semantic similarity.
 ```python
 client.search(
     term: str,
-    partition_name: str,
+    partition: str,
     key: str = "text",
     top_k: int = 5,
     collection: Optional[list[dict[str, Any]]] = None,
@@ -143,7 +143,7 @@ client.search(
 **Parameters:**
 
 - `term`: Search query string
-- `partition_name`: Name of the vector store to query
+- `partition`: Name of the vector store to query
 - `key`: property within each item in the collection to search against (vectorized field)
 - `top_k`: Maximum number of results to return
 - `collection`: Optional temporary collection (for non-persistent search)
@@ -168,7 +168,7 @@ client.search(
 ```python
 results = client.search(
     term="laptop computers",
-    partition_name="products",
+    partition="products",
     key="description",
     top_k=3
 )
@@ -179,7 +179,7 @@ results = client.search(
 ```python
 results = client.search(
     term="budget phones",
-    partition_name="temp_search",
+    partition="temp_search",
     key="description",
     top_k=5,
     collection=[
@@ -226,7 +226,7 @@ collection = [
 ]
 
 client.save(
-    partition_name="products",
+    partition="products",
     collection=collection,
     key="product.name"
 )
