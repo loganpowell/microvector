@@ -48,8 +48,16 @@ def vector_cache(
     Wraps multiple cached vector stores with partitioned access
 
     Args:
-        append: If True, adds new vectors to existing cache. If False (default),
-                replaces existing cache with new vectors.
+        - partition (int | str) The partition of the vector store to query.
+        - key (str) The key within the collection that is vectorized
+        - collection (list[Any] | None) Optional collection to filter the results.
+        - cache (bool) Whether to persist the vector store to disk.
+        - model (str) HuggingFace embedding model name.
+        - algo (SimilarityMetrics) Similarity metric to use.
+        - cache_vectors (str) Path to directory for caching vector stores.
+        - cache_models (str) Path to directory for caching embedding models.
+        - append (bool) If True, adds new vectors to existing cache. If False (default),
+            replaces existing cache with new vectors.
     """
     # Load the vector store for the specified partition
     logger.info("Looking for partition: %s", partition)
@@ -122,14 +130,40 @@ def vector_cache(
                 db.save(str(path))
                 logger.info("Replaced collection saved to %s", path)
     else:
-        db = Store(
-            formatted_collection,
-            key=key,
-            embedding_function=embeddings_lambda(
-                key=key, model=model, cache_folder=cache_models
-            ),
-            algo=algo,
-        )
+        # cache=False: Check if we should load existing cache and append temporarily
+        path = Path(cache_vectors, f"{partition}.pickle.gz")
+        if append and os.path.exists(path):
+            # Load existing cache but don't persist changes
+            logger.info(
+                "Loading cached vector store (%s) for temporary append (not persisted)...",
+                partition,
+            )
+            db = Store(
+                key=key,
+                embedding_function=embeddings_lambda(
+                    key=key, model=model, cache_folder=cache_models
+                ),
+                algo=algo,
+            )
+            db.load(str(path))
+
+            # Append new collection to the loaded store (in memory only)
+            if formatted_collection:
+                logger.info(
+                    "Temporarily appending %d documents to existing vector store (not persisted)",
+                    len(formatted_collection),
+                )
+                db.add_collection(formatted_collection)
+        else:
+            # No existing cache or append=False: create new temporary store
+            db = Store(
+                formatted_collection,
+                key=key,
+                embedding_function=embeddings_lambda(
+                    key=key, model=model, cache_folder=cache_models
+                ),
+                algo=algo,
+            )
 
     def query(term: str, top_k: int = 5) -> list[dict[str, Any]]:
         """

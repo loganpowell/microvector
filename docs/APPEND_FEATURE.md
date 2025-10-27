@@ -134,6 +134,50 @@ results = vector_search(
 )
 ```
 
+### Example 5: Temporary Append (cache=False, append=True)
+
+```python
+from microvector import Client
+
+client = Client()
+
+# Create persistent cache
+client.save(
+    partition="products",
+    collection=[
+        {"text": "laptop computer", "price": 999},
+        {"text": "wireless mouse", "price": 29},
+    ],
+    key="text"
+)
+
+# Temporarily add new products for a search without persisting
+results = client.search(
+    term="computer accessories",
+    partition="products",
+    key="text",
+    collection=[
+        {"text": "USB-C hub", "price": 49},
+        {"text": "laptop stand", "price": 39},
+    ],
+    cache=False,  # Don't persist
+    append=True,  # But load existing cache and append temporarily
+    top_k=4
+)
+
+# This search will find results from all 4 products (2 original + 2 temporary)
+# But the cache file still only contains the original 2 products
+
+# Next search without new collection - only finds original 2
+results = client.search(
+    term="computer",
+    partition="products",
+    key="text",
+    top_k=4
+)
+# Only returns the 2 original products
+```
+
 ## Implementation Details
 
 The `append` parameter modifies the behavior in `vector_cache()` function:
@@ -152,15 +196,24 @@ The `append` parameter modifies the behavior in `vector_cache()` function:
    - Overwrites cache file with new store
 
 3. **When cache doesn't exist**:
+
    - Same behavior regardless of `append` value
    - Creates new cache with provided collection
+
+4. **When cache exists and `append=True` with `cache=False`**:
+   - Loads existing cache into memory
+   - Appends new collection temporarily (in memory only)
+   - Does NOT save changes back to disk
+   - Original cache file remains unchanged
 
 ## Performance Considerations
 
 - **Append mode**: Only processes embeddings for new documents
 - **Replace mode**: Processes embeddings for all documents
+- **Temporary append mode**: Loads existing cache + processes embeddings for new documents (no disk write)
 - Appending is more efficient when adding small batches to large collections
 - Replacing is simpler and ensures consistency when you have all documents available
+- Temporary append is ideal for testing or temporary analysis without modifying stored data
 
 ## Use Cases
 
@@ -177,6 +230,15 @@ The `append` parameter modifies the behavior in `vector_cache()` function:
 - When you want to ensure data consistency
 - Deduplication or cleanup operations
 - Initial setup or complete refresh
+
+### Good use cases for `append=True` with `cache=False`:
+
+- Testing new documents against existing corpus without committing
+- "What-if" analysis - see how new documents would rank
+- Temporary expansion of search space for a single query
+- A/B testing different document sets
+- Preview mode before permanent addition
+- Analyzing candidate documents before ingestion
 
 ## Limitations
 

@@ -136,7 +136,8 @@ client.search(
     top_k: int = 5,
     collection: Optional[list[dict[str, Any]]] = None,
     cache: bool = True,
-    algo: str = "cosine"
+    algo: str = "cosine",
+    append: bool = False
 ) -> list[dict[str, Any]]
 ```
 
@@ -149,6 +150,7 @@ client.search(
 - `collection`: Optional temporary collection (for non-persistent search)
 - `cache`: If True, persist the collection; if False, keep in-memory only
 - `algo`: Similarity metric to use
+- `append`: If True, append to existing store; if False (default), replace existing store
 
 **Returns:** List of documents with similarity scores
 
@@ -245,6 +247,75 @@ client.save("support_tickets", tickets, key="description")
 # Search each independently
 news_results = client.search("economy", "news_articles", key="content")
 review_results = client.search("quality", "product_reviews", key="review_text")
+```
+
+### Incremental Updates with Append
+
+Add new documents to existing vector stores without replacing them:
+
+```python
+# Create initial store
+client.save(
+    partition="knowledge_base",
+    key="text",
+    collection=[
+        {"text": "Python is a programming language"},
+        {"text": "JavaScript runs in browsers"},
+    ]
+)
+
+# Append more documents later
+client.save(
+    partition="knowledge_base",
+    key="text",
+    collection=[
+        {"text": "TypeScript adds types to JavaScript"},
+        {"text": "Rust is memory-safe"},
+    ],
+    append=True  # Adds to existing store instead of replacing
+)
+
+# Now the store contains all 4 documents
+```
+
+### Temporary Append
+
+Test new documents against existing corpus without persisting changes:
+
+```python
+# Create persistent store
+client.save(
+    partition="products",
+    key="text",
+    collection=[
+        {"text": "laptop computer", "price": 999},
+        {"text": "wireless mouse", "price": 29},
+    ]
+)
+
+# Temporarily add documents for a single search
+results = client.search(
+    term="computer accessories",
+    partition="products",
+    key="text",
+    collection=[
+        {"text": "USB-C hub", "price": 49},
+        {"text": "laptop stand", "price": 39},
+    ],
+    cache=False,  # Don't persist
+    append=True,  # But load existing cache and append temporarily
+    top_k=4
+)
+# Returns 4 results (2 original + 2 temporary)
+
+# Next search only finds the 2 original products
+results = client.search(
+    term="computer",
+    partition="products",
+    key="text",
+    top_k=4
+)
+# Returns 2 results (temporary documents weren't persisted)
 ```
 
 ## Development Setup

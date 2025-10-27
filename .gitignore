@@ -8,4 +8,6 @@ __pycache__/
 .vector_cache/
 .pytest_cache/
 **/.test_model_cache/
+**/.test_cached_models/
+**/.test_vector_cache/
 temporary/

@@ -400,6 +400,65 @@ class TestVectorSearchAppend:
 class TestAppendEdgeCases:
     """Tests for edge cases with append functionality."""
 
+    def test_temporary_append_to_existing_cache(
+        self, client: Client, initial_collection: list[dict[str, str]]
+    ) -> None:
+        """Test temporarily appending to existing cache without persisting (cache=False, append=True)."""
+        # Create persistent cache
+        client.save(
+            partition="temp_append_test",
+            collection=initial_collection,
+            key="text",
+        )
+
+        # Verify initial cache has 2 documents
+        results = client.search(
+            term="programming",
+            partition="temp_append_test",
+            key="text",
+            top_k=5,
+        )
+        assert results is not None
+        assert len(results) == 2
+
+        # Temporarily append without persisting
+        additional_docs = [
+            {"text": "Ruby is an elegant programming language", "category": "tech"},
+            {"text": "Go is great for concurrent programming", "category": "tech"},
+        ]
+
+        results = client.search(
+            term="programming",
+            partition="temp_append_test",
+            key="text",
+            collection=additional_docs,
+            cache=False,  # Don't persist
+            append=True,  # But load existing and append in memory
+            top_k=5,
+        )
+
+        # Should have all 4 documents (2 original + 2 temporary)
+        assert results is not None
+        assert len(results) == 4
+
+        texts = [r["text"] for r in results]
+        assert any("Python" in t for t in texts)
+        assert any("Ruby" in t or "Go" in t for t in texts)
+
+        # Verify persistent cache still only has original 2 documents
+        results = client.search(
+            term="programming",
+            partition="temp_append_test",
+            key="text",
+            top_k=5,
+        )
+        assert results is not None
+        assert len(results) == 2
+
+        texts = [r["text"] for r in results]
+        assert any("Python" in t for t in texts)
+        assert not any("Ruby" in t or "Go" in t for t in texts)
+
     def test_append_empty_collection(
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
