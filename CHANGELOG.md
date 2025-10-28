@@ -48,6 +48,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixes repo references in release update fn
 - exits with 0 instead of 1 for diff truncation
 
+## [](https://github.com/loganpowell/microvector/releases/tag/) - 2025-10-28
+
+### Changed
+
+- update readme
+- adds publishing action for pypi
+- adds release script
+- reverts to batches
+- changes default model and safetensors
+- reverts to string detection
+- revert to original recipe for
+- performance improvements: - load embedding model from file (offline mode) - removes manual batching to delegate embeddings optimization to SentenceTransformer (much faster) - adds a github action to generate benchmark Job Summaries and benchmarking file histories - delegates logging specifics to consumer
+- fix: uv instead of pip for gh action and adds action for automatic changelog maintanance
+- updates CHANGELOG gen model
+- fix: CHANGELOG automation
+- update changelog link to github anchor format
+- hk
+- ensure we're rebased before we release
+- appends to top of changelog
+- fix: benchmark action not saving files
+- another 'fix' for benchmark action
+- fix string formatting for correct release link
+- adds append option and makes tests uv compliant
+- fixes test
+- test fix
+- changes search 'partition_name' to 'partition'
+- updates docs
+- fix client test with new parameter
+- adds append test and temporary append docs
+- adds embedding model name from utils to job summary
+- turns job output embedding model name to HF link
+- HK: single consts for default model and vector cache dir
+- hk
+- fix? model name in job summary
+- tries parsing model name from logs
+- let's try again
+- fix and added examples: 1. Fixed Bug in embed.py Problem: The filtering logic was checking for literal key names (e.g., metadata.author) instead of parsing the dot notation Solution: Added a has_nested_key() helper function that properly traverses nested dictionaries using dot notation
+- fixes automated changelog MGMT and adds scripts to fix ex-post
+- DRYs up the inter-release commit detection and attempts to fix our gh-model release summary
+- Truncates diff for LLM summary and modulates scripts for testing
+- fixes repo references in release update fn
+- exits with 0 instead of 1 for diff truncation
+
 ## [v0.2.17](https://github.com/loganpowell/microvector/releases/tag/v0.2.17) - 2025-10-28
 
 - fixes automated changelog MGMT and adds scripts to fix ex-post
