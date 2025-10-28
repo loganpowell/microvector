@@ -46,6 +46,7 @@ dev = [
     "ruff>=0.8.5",
     "trio>=0.26.2",
     "psutil>=5.9.0",
+    "tiktoken>=0.12.0",
 ]
 
 [build-system]
@@ -86,7 +87,7 @@ extend-exclude = ["README.md"]
 [tool.pytest.ini_options]
 log_cli_level = "INFO"
 xfail_strict = true
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = """
     --color=yes
     --capture=fd

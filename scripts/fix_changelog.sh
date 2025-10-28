@@ -30,6 +30,10 @@ EOF
 # Get all tags sorted by version (newest first)
 TAGS=$(git tag --sort=-version:refname)
 
+# Get repository name from git remote
+REPO_URL=$(git remote get-url origin)
+REPO_NAME=$(echo "$REPO_URL" | sed -E 's#.*/([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
+
 echo "Processing releases in reverse chronological order..."
 echo ""
 
@@ -46,8 +50,11 @@ for TAG in $TAGS; do
     # Get commits, excluding automated changelog and benchmark commits
     COMMITS=$(get_commits_for_range "${LOWER_BOUND}" "${UPPER_BOUND}" "true")
     
-    # Create section for this release
-    echo "## [${TAG}] - ${TAG_DATE}" >> CHANGELOG.md
+    # Create release URL using dynamic repo name
+    RELEASE_URL="https://github.com/${REPO_NAME}/releases/tag/${TAG}"
+    
+    # Create section for this release with link
+    echo "## [${TAG}](${RELEASE_URL}) - ${TAG_DATE}" >> CHANGELOG.md
     echo "" >> CHANGELOG.md
     
     if [ -n "$COMMITS" ]; then
