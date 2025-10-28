@@ -32,7 +32,8 @@ TAGS=$(git tag --sort=-version:refname)
 
 # Get repository name from git remote
 REPO_URL=$(git remote get-url origin)
-REPO_NAME=$(echo "$REPO_URL" | sed -E 's#.*/([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
+# Handle both HTTPS (https://github.com/owner/repo.git) and SSH (git@github.com:owner/repo.git) URLs
+REPO_NAME=$(echo "$REPO_URL" | sed -E 's#^(https://github.com/|git@github.com:)##' | sed 's/\.git$//')
 
 echo "Processing releases in reverse chronological order..."
 echo ""
