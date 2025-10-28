@@ -32,8 +32,20 @@ jobs:
             # If no previous tag, get first commit
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
             echo "first_release=true" >> $GITHUB_OUTPUT
+            echo "prev_commit=$PREV_TAG" >> $GITHUB_OUTPUT
           else
             echo "first_release=false" >> $GITHUB_OUTPUT
+            
+            # Find the changelog commit for the previous release (added after tag)
+            CHANGELOG_COMMIT=$(git log --grep="Update CHANGELOG for ${PREV_TAG}" --format="%H" | head -1)
+            
+            if [ -n "$CHANGELOG_COMMIT" ]; then
+              echo "📝 Found changelog commit for ${PREV_TAG}: ${CHANGELOG_COMMIT:0:7}"
+              echo "prev_commit=$CHANGELOG_COMMIT" >> $GITHUB_OUTPUT
+            else
+              echo "📝 No changelog commit found, using tag as reference"
+              echo "prev_commit=$PREV_TAG" >> $GITHUB_OUTPUT
+            fi
           fi
 
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
@@ -43,16 +55,16 @@ jobs:
         id: git_diff
         run: |
           CURRENT_TAG="${{ github.event.release.tag_name }}"
-          PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
+          PREV_COMMIT="${{ steps.prev_release.outputs.prev_commit }}"
 
           # Generate detailed diff
-          git diff ${PREV_TAG}..${CURRENT_TAG} > full_diff.txt
+          git diff ${PREV_COMMIT}..${CURRENT_TAG} > full_diff.txt
 
           # Generate summary of changed files
-          git diff --stat ${PREV_TAG}..${CURRENT_TAG} > diff_summary.txt
+          git diff --stat ${PREV_COMMIT}..${CURRENT_TAG} > diff_summary.txt
 
-          # Get commit messages
-          git log ${PREV_TAG}..${CURRENT_TAG} --pretty=format:"- %s (%h)" > commits.txt
+          # Get commit messages, excluding automated changelog commits
+          git log ${PREV_COMMIT}..${CURRENT_TAG} --pretty=format:"- %s (%h)" | grep -v "📝 Update CHANGELOG" > commits.txt
 
           echo "✅ Git diff generated"
           echo "📊 Changed files:"
@@ -136,6 +148,7 @@ jobs:
         run: |
           CURRENT_TAG="${{ github.event.release.tag_name }}"
           PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
+          PREV_COMMIT="${{ steps.prev_release.outputs.prev_commit }}"
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
           # Create a comprehensive context file for the AI
@@ -143,6 +156,7 @@ jobs:
           # Release Information
           Current Version: ${CURRENT_TAG}
           Previous Version: ${PREV_TAG}
+          Previous Commit: ${PREV_COMMIT}
           First Release: ${IS_FIRST}
 
           # Commit Messages

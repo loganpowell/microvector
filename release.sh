@@ -31,12 +31,22 @@ PREV_TAG=$(git tag --sort=-version:refname | head -1)
 
 if [ -z "$PREV_TAG" ]; then
     echo "📝 No previous releases found - this is the first release"
-    # Get all commits for first release
-    COMMIT_MESSAGES=$(git log --pretty=format:"- %s" --reverse)
+    # Get all commits for first release, excluding automated changelog commits
+    COMMIT_MESSAGES=$(git log --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
 else
     echo "📝 Previous release: $PREV_TAG"
-    # Get commits since last release
-    COMMIT_MESSAGES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse)
+    # Find the changelog commit for the previous release (added by CI after tag)
+    CHANGELOG_COMMIT=$(git log --grep="Update CHANGELOG for ${PREV_TAG}" --format="%H" | head -1)
+    
+    if [ -n "$CHANGELOG_COMMIT" ]; then
+        echo "📝 Changelog commit for ${PREV_TAG}: ${CHANGELOG_COMMIT:0:7}"
+        # Get commits since the changelog commit for previous release
+        COMMIT_MESSAGES=$(git log ${CHANGELOG_COMMIT}..HEAD --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
+    else
+        # Fallback to tag if no changelog commit found
+        echo "📝 No changelog commit found, using tag as reference"
+        COMMIT_MESSAGES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
+    fi
 fi
 
 # Build release notes
@@ -46,12 +56,16 @@ if [ -n "$CUSTOM_NOTES" ]; then
 
 ## Changes since ${PREV_TAG:-initial commit}
 
-$COMMIT_MESSAGES"
+$COMMIT_MESSAGES
+
+📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${VERSION//v/}---$(date +%Y-%m-%d))"
 else
     # Use commit messages as notes
     NOTES="## Changes since ${PREV_TAG:-initial commit}
 
-$COMMIT_MESSAGES"
+$COMMIT_MESSAGES
+
+📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${VERSION//v/}---$(date +%Y-%m-%d))"
 fi
 
 echo ""
