@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.17](https://github.com/loganpowell/microvector/releases/tag/{version}) - 2025-10-28
+
+### Changed
+
+- fixes automated changelog MGMT and adds scripts to fix ex-post
+- DRYs up the inter-release commit detection and attempts to fix our gh-model release summary
+
 ## [v0.2.16] - 2025-10-28
 
 - HK: single consts for default model and vector cache dir
