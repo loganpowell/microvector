@@ -239,7 +239,7 @@ jobs:
           git commit -m "chore: update CHANGELOG for $CURRENT_TAG" || echo "No changes to commit"
           git push
 
-      - name: Add changelog to release notes
+      - name: Update release notes with changelog
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -247,15 +247,23 @@ jobs:
           # Use validated tag from previous step
           CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
-          # Append the changelog entry to the release notes
-          CURRENT_NOTES=$(gh release view "$CURRENT_TAG" --json body -q .body)
+          # Build release notes with AI-generated changelog and link to full CHANGELOG
           CHANGELOG_CONTENT=$(cat changelog_entry.md)
           
-          # Update release notes
-          gh release edit "$CURRENT_TAG" --notes "$CURRENT_NOTES
+          # Generate GitHub markdown anchor
+          # GitHub removes dots, brackets, and other special chars, keeps dashes
+          # Example: [v0.2.18] - 2025-10-28 becomes v0218---2025-10-28
+          VERSION_NO_DOTS="${CURRENT_TAG//./}"
+          VERSION_ANCHOR="${VERSION_NO_DOTS}---$(date +%Y-%m-%d)"
+          
+          RELEASE_NOTES="$CHANGELOG_CONTENT
 
           ---
 
-          ## Changelog
-
-          $CHANGELOG_CONTENT"
+          📝 [View Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR})"
+          
+          # Update release notes
+          gh release edit "$CURRENT_TAG" --notes "$RELEASE_NOTES"
+          
+          echo "✅ Updated release notes for $CURRENT_TAG"
+          echo "✅ Updated release notes for $CURRENT_TAG"

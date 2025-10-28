@@ -65,22 +65,19 @@ else
 fi
 
 # Build release notes
+# Note: These will be replaced by AI-generated changelog via GitHub Actions
 if [ -n "$CUSTOM_NOTES" ]; then
     # Use custom notes if provided
     NOTES="$CUSTOM_NOTES
 
 ## Changes since ${PREV_TAG:-initial commit}
 
-$COMMIT_MESSAGES
-
-📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${VERSION//v/}---$(date +%Y-%m-%d))"
+$COMMIT_MESSAGES"
 else
-    # Use commit messages as notes
+    # Use commit messages as notes (will be replaced by workflow)
     NOTES="## Changes since ${PREV_TAG:-initial commit}
 
-$COMMIT_MESSAGES
-
-📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${VERSION//v/}---$(date +%Y-%m-%d))"
+$COMMIT_MESSAGES"
 fi
 
 echo ""
