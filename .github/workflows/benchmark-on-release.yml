@@ -27,6 +27,7 @@ jobs:
               uses: astral-sh/setup-uv@v3
               with:
                   enable-cache: true
+              continue-on-error: true # Don't fail if cache is unavailable
 
             - name: Install dependencies
               run: uv sync --all-extras
@@ -74,15 +75,22 @@ jobs:
                   # Extract metrics from output
                   metrics = {}
                   
-                  # Extract embedding model from logs
-                  if match := re.search(r'models--([^/]+)--([^/]+)/snapshots', output):
-                      org = match.group(1)
-                      model = match.group(2)
-                      metrics['embedding_model'] = f"{org}/{model}"
-                      print(f"✅ Extracted embedding model from logs: {org}/{model}")
+                  # Extract embedding model from our custom marker
+                  if match := re.search(r'BENCHMARK_EMBEDDING_MODEL=(.+)', output):
+                      embedding_model = match.group(1).strip()
+                      print(f"✅ Found embedding model marker: {embedding_model}")
+                      metrics['embedding_model'] = embedding_model
                   else:
-                      print("❌ Could not extract embedding model from logs")
-                      metrics['embedding_model'] = 'unknown'
+                      # Fallback: try to extract from HuggingFace cache path
+                      if match := re.search(r'models--([^/\s]+)--([^/\s]+)/snapshots', output):
+                          org = match.group(1)
+                          model = match.group(2)
+                          embedding_model = f"{org}/{model}"
+                          print(f"✅ Extracted from cache path: {embedding_model}")
+                          metrics['embedding_model'] = embedding_model
+                      else:
+                          print("❌ Could not extract embedding model")
+                          metrics['embedding_model'] = 'unknown'
 
                   # Embedding benchmarks
                   if match := re.search(r'Embedding 50 docs: ([\d.]+)s \(([\d.]+) docs/sec\)', output):

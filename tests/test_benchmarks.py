@@ -119,6 +119,9 @@ class TestEmbeddingPerformance:
         shared_model_cache: str,
     ) -> None:
         """Benchmark: Generate embeddings for 50 documents."""
+        # Print model info for GitHub Actions parsing
+        print(f"\n🤖 BENCHMARK_EMBEDDING_MODEL={EMBEDDING_MODEL}")
+
         metrics = PerformanceMetrics("embedding_50_docs")
 
         texts = [doc["text"] for doc in benchmark_data_small]
