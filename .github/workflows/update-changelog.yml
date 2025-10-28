@@ -6,9 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag name (e.g., v0.2.18)'
+        description: 'Release tag name (must be an existing tag, e.g., v0.2.18)'
         required: true
         type: string
+      regenerate:
+        description: 'Force regenerate even if changelog exists for this version'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write # Needed to commit changelog updates
@@ -24,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Full history needed for git diff
+          fetch-tags: true # Ensure all tags are fetched
           ref: main # Checkout main branch to get latest CHANGELOG.md
 
       - name: Install uv
@@ -34,23 +40,49 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Validate tag exists
+        id: validate_tag
+        run: |
+          # Get current tag from either release event or manual input
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            CURRENT_TAG="${{ github.event.release.tag_name }}"
+            echo "🎯 Triggered by release event for tag: $CURRENT_TAG"
+          else
+            CURRENT_TAG="${{ inputs.tag_name }}"
+            echo "🎯 Triggered manually for tag: $CURRENT_TAG"
+            
+            # Validate that the tag exists
+            if ! git rev-parse "$CURRENT_TAG" >/dev/null 2>&1; then
+              echo "❌ Error: Tag '$CURRENT_TAG' does not exist!"
+              echo "Available tags:"
+              git tag --sort=-version:refname | head -10
+              exit 1
+            fi
+            
+            echo "✅ Tag '$CURRENT_TAG' exists"
+          fi
+          
+          # Export for use in other steps
+          echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+
       - name: Get previous release tag
         id: prev_release
         run: |
           # Source shared release range utilities
           source scripts/get_release_range.sh
           
-          # Get current tag from either release event or manual input
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            CURRENT_TAG="${{ github.event.release.tag_name }}"
-          else
-            CURRENT_TAG="${{ inputs.tag_name }}"
-          fi
+          # Use validated tag from previous step
+          CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
           echo "📦 Processing release: $CURRENT_TAG"
           
           # Get commit range for this release
           get_release_range "$CURRENT_TAG" "false"  # false = use tag as upper bound (not changelog commit)
+          
+          echo "📊 Commit range:"
+          echo "  Lower bound: $LOWER_BOUND"
+          echo "  Upper bound: $UPPER_BOUND"
+          echo "  Previous tag: $PREV_TAG"
           
           # Export outputs for next steps
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
@@ -68,6 +100,10 @@ jobs:
         run: |
           LOWER_BOUND="${{ steps.prev_release.outputs.lower_bound }}"
           UPPER_BOUND="${{ steps.prev_release.outputs.upper_bound }}"
+          
+          echo "🔍 Debug - Bounds for diff:"
+          echo "  Lower: $LOWER_BOUND"
+          echo "  Upper: $UPPER_BOUND"
 
           # Generate summary of changed files
           git diff --stat ${LOWER_BOUND}..${UPPER_BOUND} > diff_summary.txt
@@ -75,6 +111,9 @@ jobs:
           # Get commit messages using shared utility
           source scripts/get_release_range.sh
           get_commits_with_hash "${LOWER_BOUND}" "${UPPER_BOUND}" "true" > commits.txt || echo "- No commits found" > commits.txt
+          
+          echo "📝 Commits found:"
+          cat commits.txt
 
           # Generate diff for functional code only (exclude config/docs)
           # Filter out: .md, .yml, .yaml, .sh, .json, .toml, .txt, .rst
@@ -120,13 +159,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get current tag from either release event or manual input
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            CURRENT_TAG="${{ github.event.release.tag_name }}"
-          else
-            CURRENT_TAG="${{ inputs.tag_name }}"
-          fi
-          
+          # Use validated tag from previous step
+          CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
@@ -152,7 +186,7 @@ jobs:
 
           # Use GitHub Models to generate changelog entry
           if cat ai_context.txt | gh models run xai/grok-3 \
-            "Based on commits and code changes, create a changelog for ${CURRENT_TAG}.
+            "Based on commit messages and code changes, create a changelog for ${CURRENT_TAG}.
 
           Format:
           ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
@@ -181,12 +215,8 @@ jobs:
 
       - name: Update CHANGELOG.md
         run: |
-          # Get current tag from either release event or manual input
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            CURRENT_TAG="${{ github.event.release.tag_name }}"
-          else
-            CURRENT_TAG="${{ inputs.tag_name }}"
-          fi
+          # Use validated tag from previous step
+          CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
           # Use the script to update CHANGELOG.md
           uv run python scripts/update_changelog.py \
@@ -200,62 +230,32 @@ jobs:
 
       - name: Commit and push changelog
         run: |
-          # Get current tag from either release event or manual input
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            CURRENT_TAG="${{ github.event.release.tag_name }}"
-          else
-            CURRENT_TAG="${{ inputs.tag_name }}"
-          fi
+          # Use validated tag from previous step
+          CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add CHANGELOG.md
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update CHANGELOG for $CURRENT_TAG"
-            
-            # Push to main branch (we're in detached HEAD state from the release tag)
-            git push origin HEAD:main
-            
-            echo "✅ Changelog committed and pushed"
-          fi
+          git commit -m "chore: update CHANGELOG for $CURRENT_TAG" || echo "No changes to commit"
+          git push
 
       - name: Add changelog to release notes
+        if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get current tag from either release event or manual input
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-          else
-            VERSION="${{ inputs.tag_name }}"
-          fi
+          # Use validated tag from previous step
+          CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
-          echo "📝 Updating release notes for $VERSION"
-
-          # Create changelog link
-          # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
-          VERSION_ANCHOR=$(echo "$VERSION" | sed 's/\.//g')
-          CHANGELOG_DATE=$(date +%Y-%m-%d)
-          CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}---${CHANGELOG_DATE}"
-
-          # Get current release notes
-          CURRENT_NOTES=$(gh release view "$VERSION" --json body --jq '.body')
-
-          # Create combined notes file with changelog link
-          cat > combined_notes.md << EOF
-          ${CURRENT_NOTES}
+          # Append the changelog entry to the release notes
+          CURRENT_NOTES=$(gh release view "$CURRENT_TAG" --json body -q .body)
+          CHANGELOG_CONTENT=$(cat changelog_entry.md)
+          
+          # Update release notes
+          gh release edit "$CURRENT_TAG" --notes "$CURRENT_NOTES
 
           ---
 
-          📝 **[View Release Changelog](${CHANGELOG_LINK})**
+          ## Changelog
 
-          EOF
-
-          # Update release with combined notes
-          gh release edit "$VERSION" --notes-file combined_notes.md
-
-          echo "✅ Release notes updated with changelog link"
+          $CHANGELOG_CONTENT"
