@@ -3,7 +3,12 @@ name: Update Changelog
 on:
   release:
     types: [published]
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag name (e.g., v0.2.18)'
+        required: true
+        type: string
 
 permissions:
   contents: write # Needed to commit changelog updates
@@ -35,8 +40,10 @@ jobs:
           # Source shared release range utilities
           source scripts/get_release_range.sh
           
+          # Get current tag from either release event or manual input
+          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          
           # Get commit range for this release
-          CURRENT_TAG="${{ github.event.release.tag_name }}"
           get_release_range "$CURRENT_TAG" "false"  # false = use tag as upper bound (not changelog commit)
           
           # Export outputs for next steps
@@ -107,7 +114,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_TAG="${{ github.event.release.tag_name }}"
+          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
           PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
@@ -163,10 +170,12 @@ jobs:
       - name: Update CHANGELOG.md
         run: |
           # Use the script to update CHANGELOG.md
+          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          
           uv run python scripts/update_changelog.py \
             --changelog CHANGELOG.md \
             --entry changelog_entry.md \
-            --version "${{ github.event.release.tag_name }}" \
+            --version "$CURRENT_TAG" \
             --repo "https://github.com/${{ github.repository }}"
 
           echo "📄 Updated CHANGELOG.md:"
@@ -174,6 +183,8 @@ jobs:
 
       - name: Commit and push changelog
         run: |
+          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -182,7 +193,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update CHANGELOG for ${{ github.event.release.tag_name }}"
+            git commit -m "Update CHANGELOG for $CURRENT_TAG"
             
             # Push to main branch (we're in detached HEAD state from the release tag)
             git push origin HEAD:main
@@ -194,7 +205,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${{ github.event.release.tag_name || inputs.tag_name }}"
 
           # Create changelog link
           # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
@@ -203,7 +214,7 @@ jobs:
           CHANGELOG_LINK="https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md#${VERSION_ANCHOR}---${CHANGELOG_DATE}"
 
           # Get current release notes
-          CURRENT_NOTES=$(gh release view "${{ github.event.release.tag_name }}" --json body --jq '.body')
+          CURRENT_NOTES=$(gh release view "$VERSION" --json body --jq '.body')
 
           # Create combined notes file with changelog link
           cat > combined_notes.md << EOF
@@ -216,6 +227,6 @@ jobs:
           EOF
 
           # Update release with combined notes
-          gh release edit "${{ github.event.release.tag_name }}" --notes-file combined_notes.md
+          gh release edit "$VERSION" --notes-file combined_notes.md
 
           echo "✅ Release notes updated with changelog link"
