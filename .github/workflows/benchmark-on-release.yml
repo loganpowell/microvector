@@ -62,7 +62,7 @@ jobs:
             - name: Parse benchmark metrics
               id: parse_metrics
               run: |
-                  python << 'PYTHON_SCRIPT'
+                  uv run python << 'PYTHON_SCRIPT'
                   import json
                   import re
                   from pathlib import Path
@@ -78,7 +78,8 @@ jobs:
                   try:
                       from microvector.utils import EMBEDDING_MODEL
                       metrics['embedding_model'] = EMBEDDING_MODEL
-                  except:
+                  except Exception as e:
+                      print(f"Warning: Could not import EMBEDDING_MODEL: {e}")
                       metrics['embedding_model'] = 'unknown'
 
                   # Embedding benchmarks
