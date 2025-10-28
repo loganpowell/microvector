@@ -109,7 +109,8 @@ def main():
         else:
             print("✅ Diff fits within token limit")
 
-    return 0 if not stats["was_truncated"] else 1
+    # Always return 0 - truncation is expected behavior, not an error
+    return 0
 
 
 if __name__ == "__main__":
