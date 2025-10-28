@@ -1,0 +1,21 @@
+{
+  "embedding_model": "avsolatorio/GIST-small-Embedding-v0",
+  "embedding_50_time": "0.298",
+  "embedding_50_rate": "167.79",
+  "embedding_500_time": "1.581",
+  "embedding_500_rate": "316.26",
+  "embedding_2000_time": "6.459",
+  "embedding_2000_rate": "309.65",
+  "search_500_time": "0.016",
+  "search_2000_time": "0.018",
+  "client_workflow_time": "1.685",
+  "memory_total_mb": "553.07",
+  "memory_delta_mb": "3.14",
+  "metadata": {
+    "version": "v0.2.16",
+    "python_version": "3.11",
+    "commit_sha": "a00577b16cd349efc43e97431b2ec0384a2c6b64",
+    "timestamp": "20251028_131900",
+    "runner_os": "ubuntu-latest"
+  }
+}
