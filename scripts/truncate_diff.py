@@ -17,7 +17,7 @@ import tiktoken
 def truncate_diff(
     input_path: Path,
     output_path: Path,
-    max_tokens: int = 3000,
+    max_tokens: int = 3500,  # max tokens = 40000 for xai/grok-4 (GH Action `gh-models`)
     encoding_name: str = "cl100k_base",
 ) -> dict:
     """
@@ -26,7 +26,7 @@ def truncate_diff(
     Args:
         input_path: Path to the input diff file
         output_path: Path to write the truncated diff
-        max_tokens: Maximum number of tokens to keep (default: 3000)
+        max_tokens: Maximum number of tokens to keep (default: 3500)
         encoding_name: Tiktoken encoding to use (default: cl100k_base for GPT-4)
 
     Returns:
@@ -84,8 +84,8 @@ def main():
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=3000,
-        help="Maximum number of tokens (default: 3000)",
+        default=3500,
+        help="Maximum number of tokens (default: 3500)",
     )
     parser.add_argument(
         "--encoding",

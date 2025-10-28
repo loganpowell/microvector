@@ -7,6 +7,5 @@ __pycache__/
 .cached_models/
 .vector_cache/
 .pytest_cache/
-**/.test**
+**/.**cache
 temporary/
-*.ruff_cache

@@ -180,25 +180,32 @@ jobs:
           Files Changed:
           $(cat diff_summary.txt | grep -E '\.(py|js|ts|jsx|tsx|c|cpp|h|go|rs|java)' | head -15)
 
-          Code Changes:
+          Here's a diff of the changes:
           $(cat truncated_diff.txt)
           CONTEXT_EOF
 
-          # Use GitHub Models to generate changelog entry
+          # Use GitHub Models to generate categorized changelog content (without header)
           if cat ai_context.txt | gh models run xai/grok-3 \
-            "Based on commit messages and code changes, create a changelog for ${CURRENT_TAG}.
+            "Based on commit messages and code changes, create a categorized changelog.
 
-          Format:
-          ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
+          Format (do NOT include version header, just categories):
 
           ### [Category]
           - User-facing description
 
-          Use: Added, Changed, Fixed, Performance. Be concise." \
-          > changelog_entry.md; then
-            echo "✅ Changelog entry generated"
-            echo "📝 Preview:"
-            cat changelog_entry.md
+          Categories to use: Added, Changed, Fixed, Performance, Deprecated, Removed, Security.
+          Be concise, but don't skimp on the flare to get users excited about new features." \
+          > ai_changelog_content.md; then
+            echo "✅ AI changelog content generated"
+            echo "📝 AI Content Preview:"
+            cat ai_changelog_content.md
+            
+            # Add the version header ourselves
+            cat > changelog_entry.md << ENTRY_EOF
+          ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
+
+          $(cat ai_changelog_content.md)
+          ENTRY_EOF
           else
             echo "⚠️ AI generation failed, creating basic changelog from commits"
             cat > changelog_entry.md << FALLBACK_EOF
@@ -209,9 +216,10 @@ jobs:
           $(cat commits.txt | sed 's/^- /- /' | sed 's/ ([a-f0-9]\{7\})$//')
 
           FALLBACK_EOF
-            echo "📝 Fallback changelog:"
-            cat changelog_entry.md
           fi
+          
+          echo "📝 Final changelog entry:"
+          cat changelog_entry.md
 
       - name: Update CHANGELOG.md
         run: |
