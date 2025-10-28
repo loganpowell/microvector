@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 # Default embedding model (supports safetensors for security)
 EMBEDDING_MODEL = "avsolatorio/GIST-small-Embedding-v0"
+MODEL_CACHE_DIR = "./.cached_models"
+VECTOR_CACHE_DIR = "./.vector_cache"
 
 SimilarityMetrics = Literal["dot", "cosine", "euclidean", "derrida"]
 

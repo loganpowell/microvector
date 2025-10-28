@@ -10,7 +10,10 @@ from microvector.utils import (
     EMBEDDING_MODEL,
     stringify_nonstring_target_values,
     SimilarityMetrics,
+    MODEL_CACHE_DIR,
+    VECTOR_CACHE_DIR,
 )
+
 from microvector.store import Store
 
 # Use concrete float32 type instead of generic floating[Any] for better type checking
@@ -20,19 +23,6 @@ FloatArray = NDArray[np.float32]
 logger = logging.getLogger(__name__)
 
 
-def embeddings_lambda(
-    key: str,
-    model: str = EMBEDDING_MODEL,
-    cache_folder: str = "./.cached_models",
-) -> Callable[[Any], list[FloatArray]]:
-    """
-    Just a model passthrough for testing purposes.
-    """
-    return lambda docs: get_embeddings(
-        docs, key=key, model=model, cache_folder=cache_folder
-    )
-
-
 def vector_cache(
     partition: Union[int, str],
     key: str,
@@ -40,8 +30,8 @@ def vector_cache(
     cache: bool = True,
     model: str = EMBEDDING_MODEL,
     algo: SimilarityMetrics = "cosine",
-    cache_vectors: str = "./.vector_cache",
-    cache_models: str = "./.cached_models",
+    cache_vectors: str = VECTOR_CACHE_DIR,
+    cache_models: str = MODEL_CACHE_DIR,
     append: bool = False,
 ) -> Callable[[str, int], list[dict[str, Any]]]:
     """
@@ -63,6 +53,19 @@ def vector_cache(
     logger.info("Looking for partition: %s", partition)
     logger.info("Vectorizing for key: %s", key)
 
+    embed = lambda docs: get_embeddings(
+        docs, key=key, model=model, cache_folder=cache_models
+    )
+
+    # Helper to create Store instances with consistent parameters
+    def create_store(data: Optional[list[Any]] = None) -> Store:
+        return Store(
+            data,
+            key=key,
+            embedding_function=embed,
+            algo=algo,
+        )
+
     # lowercase snake_case partition e.g.: Applies To Selected Jurisdiction Only
     partition = str(partition).lower().replace(" ", "_")
     formatted_collection: Optional[list[Any]] = None
@@ -70,6 +73,7 @@ def vector_cache(
         formatted_result = stringify_nonstring_target_values(collection, key)
         if isinstance(formatted_result, list):
             formatted_collection = formatted_result
+
     # check if the file exists
     if cache:
         path = Path(cache_vectors, f"{partition}.pickle.gz")
@@ -83,25 +87,12 @@ def vector_cache(
             os.makedirs(os.path.dirname(path), exist_ok=True)
             logger.info("Loading collection. Please wait...")
             # Load the collection
-            db = Store(
-                formatted_collection,
-                key=key,
-                embedding_function=embeddings_lambda(
-                    key=key, model=model, cache_folder=cache_models
-                ),
-                algo=algo,
-            )
+            db = create_store(formatted_collection)
             db.save(str(path))
             logger.info("Collection saved to %s", path)
         else:
             logger.info("Loading cached vector store (%s) from %s...", partition, path)
-            db = Store(
-                key=key,
-                embedding_function=embeddings_lambda(
-                    key=key, model=model, cache_folder=cache_models
-                ),
-                algo=algo,
-            )
+            db = create_store()
             db.load(str(path))
 
             # If append mode and we have a new collection, add it to the existing store
@@ -119,14 +110,7 @@ def vector_cache(
                     "Replacing existing vector store with %d new documents",
                     len(formatted_collection),
                 )
-                db = Store(
-                    formatted_collection,
-                    key=key,
-                    embedding_function=embeddings_lambda(
-                        key=key, model=model, cache_folder=cache_models
-                    ),
-                    algo=algo,
-                )
+                db = create_store(formatted_collection)
                 db.save(str(path))
                 logger.info("Replaced collection saved to %s", path)
     else:
@@ -138,13 +122,7 @@ def vector_cache(
                 "Loading cached vector store (%s) for temporary append (not persisted)...",
                 partition,
             )
-            db = Store(
-                key=key,
-                embedding_function=embeddings_lambda(
-                    key=key, model=model, cache_folder=cache_models
-                ),
-                algo=algo,
-            )
+            db = create_store()
             db.load(str(path))
 
             # Append new collection to the loaded store (in memory only)
@@ -156,14 +134,7 @@ def vector_cache(
                 db.add_collection(formatted_collection)
         else:
             # No existing cache or append=False: create new temporary store
-            db = Store(
-                formatted_collection,
-                key=key,
-                embedding_function=embeddings_lambda(
-                    key=key, model=model, cache_folder=cache_models
-                ),
-                algo=algo,
-            )
+            db = create_store(formatted_collection)
 
     def query(term: str, top_k: int = 5) -> list[dict[str, Any]]:
         """
@@ -175,17 +146,3 @@ def vector_cache(
         return results
 
     return query  # Return the query function instead of yielding it
-
-
-# test_coll = [
-#     {"header": "Another header", "body": "UAE"},
-#     {"header": "Third header", "body": "United Kingdom"},
-#     {"header": "Fourth header", "body": "United Arab Emirates"},
-#     {"header": "Some header", "body": "United State of America"},
-#     {"header": "Fifth header", "body": "Patriot"},
-# ]
-
-# querier = vector_cache(partition=2, key="body", collection=test_coll)
-# results = querier("USA", top_k=5)
-
-# print(f"results: {json.dumps(results, indent=2)}")

@@ -14,7 +14,9 @@ def verify_setup():
 
         print(f"✅ PyTorch {torch.__version__} installed")
         print(f"   CUDA available: {torch.cuda.is_available()}")
-        print(f"   MPS available: {torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else 'N/A'}")
+        print(
+            f"   MPS available: {torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else 'N/A'}"
+        )
         print(f"   Device: {torch.device('cpu')}")
     except ImportError:
         print("❌ PyTorch not found")

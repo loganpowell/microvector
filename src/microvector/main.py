@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 from microvector.cache import vector_cache
-from microvector.utils import EMBEDDING_MODEL, SimilarityMetrics
+from microvector.utils import (
+    EMBEDDING_MODEL,
+    MODEL_CACHE_DIR,
+    VECTOR_CACHE_DIR,
+    SimilarityMetrics,
+)
 
 # Get logger - let the library consumer configure logging
 logger = logging.getLogger(__name__)
@@ -24,9 +29,9 @@ class Client:
 
     Args:
         cache_models: Path to directory for caching embedding models.
-            Defaults to "./.cached_models"
+            Defaults to MODEL_CACHE_DIR
         cache_vectors: Path to directory for caching vector stores.
-            Defaults to "./.vector_cache"
+            Defaults to VECTOR_CACHE_DIR
         embedding_model: HuggingFace embedding model name.
             Defaults to "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -49,8 +54,8 @@ class Client:
 
     def __init__(
         self,
-        cache_models: str = "./.cached_models",
-        cache_vectors: str = "./.vector_cache",
+        cache_models: str = MODEL_CACHE_DIR,
+        cache_vectors: str = VECTOR_CACHE_DIR,
         embedding_model: str = EMBEDDING_MODEL,
     ):
         self.cache_models = cache_models

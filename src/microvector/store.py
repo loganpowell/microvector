@@ -34,7 +34,9 @@ def unpack_results(results: list[tuple[Any, float]]) -> list[dict[str, Any]]:
         if isinstance(document, dict):
             unpacked.append({**document, "similarity_score": float(similarity)})
         else:
-            unpacked.append({"document": document, "similarity_score": float(similarity)})
+            unpacked.append(
+                {"document": document, "similarity_score": float(similarity)}
+            )
     return unpacked
 
 
@@ -93,9 +95,14 @@ class Store:
                 return []
             return [
                 {"document": document, "vector": vector.tolist(), "index": index}
-                for index, (document, vector) in enumerate(zip(self.collection, self.vectors))
+                for index, (document, vector) in enumerate(
+                    zip(self.collection, self.vectors)
+                )
             ]
-        return [{"document": document, "index": index} for index, document in enumerate(self.collection)]
+        return [
+            {"document": document, "index": index}
+            for index, document in enumerate(self.collection)
+        ]
 
     def _pre_process(self) -> None:
         """
@@ -120,7 +127,9 @@ class Store:
             self.add_collection(collection, vectors)  # type: ignore
 
     def add_document(self, document: Any, vector: Optional[FloatArray] = None) -> None:
-        resolved_vector: FloatArray = vector if vector is not None else self.embedding_function([document])[0]
+        resolved_vector: FloatArray = (
+            vector if vector is not None else self.embedding_function([document])[0]
+        )
         if self.vectors is None:
             self.vectors = np.empty((0, len(resolved_vector)), dtype=np.float32)
         elif len(resolved_vector) != self.vectors.shape[1]:
@@ -139,11 +148,15 @@ class Store:
         # Vectors are still normalized after deletion (just fewer of them)
         # No need to re-normalize
 
-    def add_collection(self, collection: list[Any], vectors: Optional[FloatArray] = None) -> None:
+    def add_collection(
+        self, collection: list[Any], vectors: Optional[FloatArray] = None
+    ) -> None:
         if not collection:
             return
         resolved_vectors: FloatArray = (
-            vectors if vectors is not None else np.array(self.embedding_function(collection)).astype(np.float32)
+            vectors
+            if vectors is not None
+            else np.array(self.embedding_function(collection)).astype(np.float32)
         )
 
         # Batch operation: single vstack instead of loop
@@ -153,7 +166,9 @@ class Store:
             # Validate dimensions
             if resolved_vectors.shape[1] != self.vectors.shape[1]:
                 raise ValueError("All vectors must have the same length.")
-            self.vectors = np.vstack([self.vectors, resolved_vectors]).astype(np.float32)
+            self.vectors = np.vstack([self.vectors, resolved_vectors]).astype(
+                np.float32
+            )
 
         self.collection.extend(collection)
 
@@ -210,7 +225,9 @@ class Store:
             similarities = similarities[top_indices].flatten()
         else:
             # Use the regular similarity functions for other algorithms
-            top_indices, similarities = self.sort(self.vectors, query_vector, top_k=top_k)
+            top_indices, similarities = self.sort(
+                self.vectors, query_vector, top_k=top_k
+            )
 
         return unpack_results(
             list(

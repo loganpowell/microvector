@@ -12,10 +12,14 @@ def get_norm_vector(vector: FloatArray) -> FloatArray:
     if len(vector.shape) == 1:
         return (vector / np.linalg.norm(vector)).astype(np.float32)
     else:
-        return (vector / np.linalg.norm(vector, axis=1)[:, np.newaxis]).astype(np.float32)
+        return (vector / np.linalg.norm(vector, axis=1)[:, np.newaxis]).astype(
+            np.float32
+        )
 
 
-def dot_product(vectors: FloatArray, query_vector: FloatArray, top_k: int = 5) -> Tuple[NDArray[np.intp], FloatArray]:
+def dot_product(
+    vectors: FloatArray, query_vector: FloatArray, top_k: int = 5
+) -> Tuple[NDArray[np.intp], FloatArray]:
     similarities = np.dot(vectors, query_vector.T).astype(np.float32)
     top_indices = np.argsort(similarities, axis=0)[-top_k:][::-1]
     return top_indices.flatten(), similarities[top_indices].flatten()
@@ -54,6 +58,8 @@ def derridaean_similarity(
     norm_vectors = get_norm_vector(vectors)
     norm_query_vector = get_norm_vector(query_vector)
     similarities = np.dot(norm_vectors, norm_query_vector.T).astype(np.float32)
-    derrida_similarities: FloatArray = np.vectorize(random_change)(similarities).astype(np.float32)
+    derrida_similarities: FloatArray = np.vectorize(random_change)(similarities).astype(
+        np.float32
+    )
     top_indices = np.argsort(derrida_similarities, axis=0)[-top_k:][::-1]
     return top_indices.flatten(), derrida_similarities[top_indices].flatten()

@@ -48,7 +48,9 @@ def print_benchmark_summary(benchmarks: list[dict[str, Any]]) -> None:
     print(f"Total benchmark runs: {len(benchmarks)}\n")
 
     # Table header
-    print(f"{'Version':<12} {'Python':<8} {'Embed 500':<12} {'Search 500':<12} {'Memory':<10}")
+    print(
+        f"{'Version':<12} {'Python':<8} {'Embed 500':<12} {'Search 500':<12} {'Memory':<10}"
+    )
     print("-" * 80)
 
     for bench in benchmarks:
@@ -64,7 +66,9 @@ def print_benchmark_summary(benchmarks: list[dict[str, Any]]) -> None:
         search_str = f"{search_time}s" if search_time != "N/A" else "N/A"
         memory_str = f"{memory}MB" if memory != "N/A" else "N/A"
 
-        print(f"{version:<12} {python_ver:<8} {embed_str:<12} {search_str:<12} {memory_str:<10}")
+        print(
+            f"{version:<12} {python_ver:<8} {embed_str:<12} {search_str:<12} {memory_str:<10}"
+        )
 
     print("\n" + "=" * 80)
 

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from microvector import Client
-from microvector.utils import EMBEDDING_MODEL
+from microvector.utils import EMBEDDING_MODEL, MODEL_CACHE_DIR, VECTOR_CACHE_DIR
 
 
 @pytest.fixture
@@ -52,8 +52,8 @@ class TestClientInitialization:
     def test_client_init_default_paths(self) -> None:
         """Test client initialization with default paths."""
         client = Client()
-        assert client.cache_models == "./.cached_models"
-        assert client.cache_vectors == "./.vector_cache"
+        assert client.cache_models == MODEL_CACHE_DIR
+        assert client.cache_vectors == VECTOR_CACHE_DIR
         assert client.embedding_model == EMBEDDING_MODEL
 
     def test_client_init_custom_paths(self, temp_cache_dirs: tuple[str, str]) -> None:

@@ -24,7 +24,9 @@ class TestUnpackResults:
 
         assert len(unpacked) == 2
         assert unpacked[0]["text"] == "first document"
-        assert abs(unpacked[0]["similarity_score"] - 0.95) < 0.01  # Allow for floating point precision
+        assert (
+            abs(unpacked[0]["similarity_score"] - 0.95) < 0.01
+        )  # Allow for floating point precision
         assert unpacked[1]["text"] == "second document"
         assert abs(unpacked[1]["similarity_score"] - 0.80) < 0.01
 

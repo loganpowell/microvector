@@ -10,7 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
 
-from microvector.utils import EMBEDDING_MODEL, get_local_model_path
+from microvector.utils import EMBEDDING_MODEL, MODEL_CACHE_DIR, get_local_model_path
 
 # Use concrete float32 type instead of generic floating[Any] for better type checking
 FloatArray = NDArray[np.float32]
@@ -28,7 +28,7 @@ def get_embeddings(
     chunks: Union[list[str], list[dict[str, str]], str],
     key: Optional[str] = None,
     model: str = EMBEDDING_MODEL,
-    cache_folder: str = "./.cached_models",
+    cache_folder: str = MODEL_CACHE_DIR,
 ) -> list[FloatArray]:
     logger.debug("Starting get_embeddings function.")
     logger.debug(f"Input chunks type: {type(chunks)}, key: {key}")
@@ -150,7 +150,7 @@ def get_embeddings(
 
 def save_model_for_offline_use(
     model_name: str = EMBEDDING_MODEL,
-    cache_folder: str = "./.cached_models",
+    cache_folder: str = MODEL_CACHE_DIR,
 ) -> Path:
     """
     Download and save a model for offline use.
