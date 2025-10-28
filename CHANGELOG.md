@@ -8,40 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
 
 ### Added
+
 - New scripts for changelog and benchmark preparation
 - Tools for truncating diffs for LLM summaries
 - Dynamic repository references in release update functions
 
 ### Fixed
-- Corrected repository references in release update functionality
 
-## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
+- Corrected repository references in release update functionality
 
 ### Changed
 
 - Truncates diff for LLM summary and modulates scripts for testing
 - fixes repo references in release update fn
 
-## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
-
-### Added
-- New scripts for changelog and benchmark summary generation
-- Tools for truncating git diffs to token limits for AI model consumption
-- Dynamic repository reference handling in release update functions
-
-### Fixed
-- Corrected repository references in release update functionality for accurate linking
-
 ### Performance
+
 - Added benchmark summary preparation for performance metrics in release notes
-
-## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
-
-- Truncates diff for LLM summary and modulates scripts for testing
-- fixes repo references in release update fn
-- exits with 0 instead of 1 for diff truncation
-- enable chanagelog gh action via manual trigger
-- fix: enable chanagelog gh action via manual trigger
 
 ## [v0.2.17](https://github.com/loganpowell/microvector/releases/tag/v0.2.17) - 2025-10-28
 
@@ -144,4 +127,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - update readme
 - adds publishing action for pypi
-

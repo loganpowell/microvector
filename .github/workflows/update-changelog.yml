@@ -218,12 +218,20 @@ jobs:
           # Use validated tag from previous step
           CURRENT_TAG="${{ steps.validate_tag.outputs.current_tag }}"
           
+          # Check if we should force regeneration
+          FORCE_FLAG=""
+          if [ "${{ inputs.regenerate }}" = "true" ]; then
+            FORCE_FLAG="--force"
+            echo "🔄 Force regeneration enabled"
+          fi
+          
           # Use the script to update CHANGELOG.md
           uv run python scripts/update_changelog.py \
             --changelog CHANGELOG.md \
             --entry changelog_entry.md \
             --version "$CURRENT_TAG" \
-            --repo "https://github.com/${{ github.repository }}"
+            --repo "https://github.com/${{ github.repository }}" \
+            $FORCE_FLAG
 
           echo "📄 Updated CHANGELOG.md:"
           head -n 50 CHANGELOG.md
@@ -265,5 +273,4 @@ jobs:
           # Update release notes
           gh release edit "$CURRENT_TAG" --notes "$RELEASE_NOTES"
           
-          echo "✅ Updated release notes for $CURRENT_TAG"
           echo "✅ Updated release notes for $CURRENT_TAG"

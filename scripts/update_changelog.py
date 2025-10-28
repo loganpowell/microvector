@@ -18,6 +18,7 @@ def update_changelog(
     version: str,
     repo_url: str,
     create_if_missing: bool = True,
+    force: bool = False,
 ) -> bool:
     """
     Update CHANGELOG.md with a new release entry.
@@ -28,6 +29,7 @@ def update_changelog(
         version: Version string (e.g., "v0.1.26")
         repo_url: GitHub repository URL (e.g., "https://github.com/owner/repo")
         create_if_missing: Create CHANGELOG.md if it doesn't exist
+        force: Force regeneration even if version already exists
 
     Returns:
         True if changelog was updated, False otherwise
@@ -51,6 +53,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
     # Read the changelog
     changelog = changelog_path.read_text()
+
+    # Check if version already exists in changelog
+    version_header_pattern = rf"## \[{re.escape(version)}\].*?(?=\n## \[|$)"
+    existing_match = re.search(version_header_pattern, changelog, re.DOTALL)
+
+    if existing_match and not force:
+        print(f"⚠️  Version {version} already exists in CHANGELOG.md")
+        print("Skipping duplicate entry (use --force to regenerate)")
+        return True  # Not an error, just skip
+
+    if existing_match and force:
+        print(f"🔄 Regenerating entry for {version} (force mode)")
+        # Remove the existing entry
+        changelog = (
+            changelog[: existing_match.start()] + changelog[existing_match.end() :]
+        )
 
     # Read the new entry
     if not entry_path.exists():
@@ -122,6 +140,11 @@ def main():
         action="store_true",
         help="Do not create CHANGELOG.md if it does not exist",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force regeneration even if version already exists",
+    )
 
     args = parser.parse_args()
 
@@ -132,6 +155,7 @@ def main():
         args.version,
         args.repo,
         create_if_missing=not args.no_create,
+        force=args.force,
     )
 
     if success:
