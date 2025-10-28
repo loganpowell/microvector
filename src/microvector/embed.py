@@ -74,10 +74,25 @@ def get_embeddings(
         and isinstance(chunks[0], dict)
         and key is not None
     ):
+        # Helper function to check if a nested key path exists in a dictionary
+        def has_nested_key(obj: dict, key_path: str) -> bool:
+            """Check if a nested key path exists in a dictionary using dot notation."""
+            if "." in key_path:
+                keys = key_path.split(".")
+                current = obj
+                for k in keys:
+                    if isinstance(current, dict) and k in current:
+                        current = current[k]
+                    else:
+                        return False
+                return current is not None
+            else:
+                return key_path in obj and obj.get(key_path) is not None
+
         chunks = [
             chunk
             for chunk in chunks
-            if isinstance(chunk, dict) and key in chunk and chunk.get(key) is not None
+            if isinstance(chunk, dict) and has_nested_key(chunk, key)
         ]
         logger.debug(f"Filtered chunk count: {len(chunks)}")
 
