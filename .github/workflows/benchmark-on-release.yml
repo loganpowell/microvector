@@ -62,7 +62,7 @@ jobs:
             - name: Parse benchmark metrics
               id: parse_metrics
               run: |
-                  uv run python << 'PYTHON_SCRIPT'
+                  cat > parse_metrics.py << 'PYTHON_SCRIPT'
                   import json
                   import re
                   from pathlib import Path
@@ -74,12 +74,14 @@ jobs:
                   # Extract metrics from output
                   metrics = {}
                   
-                  # Get embedding model from microvector
-                  try:
-                      from microvector.utils import EMBEDDING_MODEL
-                      metrics['embedding_model'] = EMBEDDING_MODEL
-                  except Exception as e:
-                      print(f"Warning: Could not import EMBEDDING_MODEL: {e}")
+                  # Extract embedding model from logs
+                  if match := re.search(r'models--([^/]+)--([^/]+)/snapshots', output):
+                      org = match.group(1)
+                      model = match.group(2)
+                      metrics['embedding_model'] = f"{org}/{model}"
+                      print(f"✅ Extracted embedding model from logs: {org}/{model}")
+                  else:
+                      print("❌ Could not extract embedding model from logs")
                       metrics['embedding_model'] = 'unknown'
 
                   # Embedding benchmarks
@@ -119,6 +121,9 @@ jobs:
                   print("✅ Metrics parsed successfully")
                   print(json.dumps(metrics, indent=2))
                   PYTHON_SCRIPT
+                  
+                  # Run the script with uv
+                  uv run python parse_metrics.py
 
             - name: Upload benchmark results
               uses: actions/upload-artifact@v4
