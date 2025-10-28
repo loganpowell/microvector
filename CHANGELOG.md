@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
+
+### Added
+- New scripts for changelog generation, diff truncation, and benchmark summary preparation
+- Dynamic repository URL handling for release links in changelog
+
+### Changed
+- Updated changelog format to include direct links to GitHub releases
+
+### Fixed
+- Corrected repository references in release update functionality
+
 ## [](https://github.com/loganpowell/microvector/releases/tag/) - 2025-10-28
 
 ### Changed
