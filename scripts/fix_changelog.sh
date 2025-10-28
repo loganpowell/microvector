@@ -4,6 +4,10 @@
 
 set -e
 
+# Source shared release range utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/get_release_range.sh"
+
 echo "🔧 Regenerating CHANGELOG.md..."
 echo ""
 
@@ -33,33 +37,14 @@ echo ""
 for TAG in $TAGS; do
     echo "Processing $TAG..."
     
-    # Find previous tag
-    PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${TAG}$" | tail -1)
-    
-    if [ "$PREV_TAG" = "$TAG" ]; then
-        echo "  First release"
-        PREV_COMMIT=$(git rev-list --max-parents=0 HEAD)
-    else
-        echo "  Using previous tag $PREV_TAG as reference"
-        PREV_COMMIT="$PREV_TAG"
-    fi
-    
-    # Find the changelog commit for THIS release (comes after the tag)
-    CHANGELOG_COMMIT=$(git log --all --grep="Update CHANGELOG for ${TAG}" --format="%H" | head -1)
-    
-    if [ -n "$CHANGELOG_COMMIT" ]; then
-        echo "  Using changelog commit ${CHANGELOG_COMMIT:0:7} as upper bound"
-        UPPER_COMMIT="$CHANGELOG_COMMIT"
-    else
-        echo "  No changelog commit found, using tag ${TAG}"
-        UPPER_COMMIT="$TAG"
-    fi
+    # Get commit range for this release using shared utility
+    get_release_range "$TAG" "true"
     
     # Get the date of this tag
-    TAG_DATE=$(git log -1 --format=%cd --date=format:%Y-%m-%d ${TAG})
+    TAG_DATE=$(get_tag_date "${TAG}")
     
     # Get commits, excluding automated changelog and benchmark commits
-    COMMITS=$(git log ${PREV_COMMIT}..${UPPER_COMMIT} --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG" | grep -v "^- 📊 Add benchmark results" || true)
+    COMMITS=$(get_commits_for_range "${LOWER_BOUND}" "${UPPER_BOUND}" "true")
     
     # Create section for this release
     echo "## [${TAG}] - ${TAG_DATE}" >> CHANGELOG.md

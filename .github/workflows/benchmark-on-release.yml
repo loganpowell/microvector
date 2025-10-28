@@ -355,7 +355,7 @@ jobs:
                   if git diff --staged --quiet; then
                     echo "No benchmark files to commit"
                   else
-                    git commit -m "📊 Add benchmark results for ${{ github.event.release.tag_name }} (Python 3.11)"
+                    git commit -m "Add benchmark results for ${{ github.event.release.tag_name }} (Python 3.11)"
                     
                     # Fetch and rebase onto latest main (changelog workflow may have pushed)
                     git fetch origin main

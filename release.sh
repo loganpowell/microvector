@@ -31,8 +31,23 @@ PREV_TAG=$(git tag --sort=-version:refname | head -1)
 
 if [ -z "$PREV_TAG" ]; then
     echo "📝 No previous releases found - this is the first release"
-    # Get all commits for first release, excluding automated changelog commits
-    COMMIT_MESSAGES=$(git log --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
+    # Generate commit messages for release notes, excluding automated changelog commits
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    COMMIT_MESSAGES=$(git log --pretty=format:"- %s" --reverse | grep -v "Update CHANGELOG")
+else
+    COMMIT_MESSAGES="- Initial release"
+fi
+
+# Try to find the changelog commit for the previous release
+CHANGELOG_COMMIT=$(git log --grep="Update CHANGELOG for ${PREV_TAG}" --format="%H" | head -1)
+
+if [ -n "$CHANGELOG_COMMIT" ]; then
+    echo "Using changelog commit ${CHANGELOG_COMMIT:0:7} as reference for commit range"
+    COMMIT_MESSAGES=$(git log ${CHANGELOG_COMMIT}..HEAD --pretty=format:"- %s" --reverse | grep -v "Update CHANGELOG")
+else
+    echo "No changelog commit found, using previous tag as reference"
+    COMMIT_MESSAGES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --reverse | grep -v "Update CHANGELOG")
+fi
 else
     echo "📝 Previous release: $PREV_TAG"
     # Find the changelog commit for the previous release (added by CI after tag)

@@ -24,47 +24,39 @@ jobs:
       - name: Get previous release tag
         id: prev_release
         run: |
-          # Get the tag before the current one
+          # Source shared release range utilities
+          source scripts/get_release_range.sh
+          
+          # Get commit range for this release
           CURRENT_TAG="${{ github.event.release.tag_name }}"
-          PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
-
-          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
-            # If no previous tag, get first commit
-            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          get_release_range "$CURRENT_TAG" "false"  # false = use tag as upper bound (not changelog commit)
+          
+          # Export outputs for next steps
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "lower_bound=$LOWER_BOUND" >> $GITHUB_OUTPUT
+          echo "upper_bound=$UPPER_BOUND" >> $GITHUB_OUTPUT
+          
+          if [ "$LOWER_BOUND" = "$(git rev-list --max-parents=0 HEAD)" ]; then
             echo "first_release=true" >> $GITHUB_OUTPUT
-            echo "prev_commit=$PREV_TAG" >> $GITHUB_OUTPUT
           else
             echo "first_release=false" >> $GITHUB_OUTPUT
-            
-            # Find the changelog commit for the previous release (added after tag)
-            CHANGELOG_COMMIT=$(git log --grep="Update CHANGELOG for ${PREV_TAG}" --format="%H" | head -1)
-            
-            if [ -n "$CHANGELOG_COMMIT" ]; then
-              echo "📝 Found changelog commit for ${PREV_TAG}: ${CHANGELOG_COMMIT:0:7}"
-              echo "prev_commit=$CHANGELOG_COMMIT" >> $GITHUB_OUTPUT
-            else
-              echo "📝 No changelog commit found, using tag as reference"
-              echo "prev_commit=$PREV_TAG" >> $GITHUB_OUTPUT
-            fi
           fi
-
-          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "📍 Previous release: $PREV_TAG"
 
       - name: Generate git diff
         id: git_diff
         run: |
-          CURRENT_TAG="${{ github.event.release.tag_name }}"
-          PREV_COMMIT="${{ steps.prev_release.outputs.prev_commit }}"
+          LOWER_BOUND="${{ steps.prev_release.outputs.lower_bound }}"
+          UPPER_BOUND="${{ steps.prev_release.outputs.upper_bound }}"
 
           # Generate detailed diff
-          git diff ${PREV_COMMIT}..${CURRENT_TAG} > full_diff.txt
+          git diff ${LOWER_BOUND}..${UPPER_BOUND} > full_diff.txt
 
           # Generate summary of changed files
-          git diff --stat ${PREV_COMMIT}..${CURRENT_TAG} > diff_summary.txt
+          git diff --stat ${LOWER_BOUND}..${UPPER_BOUND} > diff_summary.txt
 
-          # Get commit messages, excluding automated changelog commits
-          git log ${PREV_COMMIT}..${CURRENT_TAG} --pretty=format:"- %s (%h)" | grep -v "📝 Update CHANGELOG" > commits.txt
+          # Get commit messages using shared utility
+          source scripts/get_release_range.sh
+          get_commits_with_hash "${LOWER_BOUND}" "${UPPER_BOUND}" "true" > commits.txt || echo "- No commits found" > commits.txt
 
           echo "✅ Git diff generated"
           echo "📊 Changed files:"
@@ -148,15 +140,13 @@ jobs:
         run: |
           CURRENT_TAG="${{ github.event.release.tag_name }}"
           PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
-          PREV_COMMIT="${{ steps.prev_release.outputs.prev_commit }}"
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
           # Create a comprehensive context file for the AI
-          cat > ai_context.txt << 'CONTEXT_EOF'
+          cat > ai_context.txt << CONTEXT_EOF
           # Release Information
           Current Version: ${CURRENT_TAG}
           Previous Version: ${PREV_TAG}
-          Previous Commit: ${PREV_COMMIT}
           First Release: ${IS_FIRST}
 
           # Commit Messages
@@ -173,7 +163,7 @@ jobs:
           CONTEXT_EOF
 
           # Use GitHub Models to generate changelog entry
-          cat ai_context.txt | gh models run xai/grok-3 \
+          if cat ai_context.txt | gh models run xai/grok-3 \
             "You are a technical writer creating a changelog entry for a Python library called microvector - a lightweight local vector database.
 
           Based on the git diff, commit messages, and benchmark data provided, create a changelog entry following the Keep a Changelog format.
@@ -192,11 +182,24 @@ jobs:
           If this is the first release, you may include a brief introduction about what the library does.
 
           Only output the changelog entry in markdown format, nothing else. Do not include code blocks or backticks around the output." \
-          > changelog_entry.md
+          > changelog_entry.md; then
+            echo "✅ Changelog entry generated"
+            echo "📝 Preview:"
+            cat changelog_entry.md
+          else
+            echo "⚠️ AI generation failed, creating basic changelog from commits"
+            # Fallback: create basic changelog from commits
+            cat > changelog_entry.md << FALLBACK_EOF
+          ## [${CURRENT_TAG}] - $(date +%Y-%m-%d)
 
-          echo "✅ Changelog entry generated"
-          echo "📝 Preview:"
-          cat changelog_entry.md
+          ### Changed
+
+          $(cat commits.txt | sed 's/^- /- /' | sed 's/ ([a-f0-9]\{7\})$//')
+
+          FALLBACK_EOF
+            echo "📝 Fallback changelog:"
+            cat changelog_entry.md
+          fi
 
       - name: Update CHANGELOG.md
         run: |
@@ -276,7 +279,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "📝 Update CHANGELOG for ${{ github.event.release.tag_name }}"
+            git commit -m "Update CHANGELOG for ${{ github.event.release.tag_name }}"
             
             # Push to main branch (we're in detached HEAD state from the release tag)
             git push origin HEAD:main

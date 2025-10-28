@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.16] - 2025-10-28
+
+- HK: single consts for default model and vector cache dir
+- hk
+- fix? model name in job summary
+- tries parsing model name from logs
+- let's try again
+- fix and added examples: 1. Fixed Bug in embed.py Problem: The filtering logic was checking for literal key names (e.g., metadata.author) instead of parsing the dot notation Solution: Added a has_nested_key() helper function that properly traverses nested dictionaries using dot notation
+
 ## [v0.2.15] - 2025-10-28
 
 - No changes recorded

@@ -4,6 +4,10 @@
 
 set -e
 
+# Source shared release range utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/get_release_range.sh"
+
 # Get all tags sorted by version
 TAGS=$(git tag --sort=-version:refname)
 
@@ -14,33 +18,28 @@ echo ""
 for TAG in $TAGS; do
     echo "Processing $TAG..."
     
-    # Find previous tag
-    PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${TAG}$" | tail -1)
+    # Get commit range for this release using shared utility
+    get_release_range "$TAG" "true"
     
-    if [ "$PREV_TAG" = "$TAG" ]; then
+    # Check if this is the first release
+    if [ "$LOWER_BOUND" = "$(git rev-list --max-parents=0 HEAD)" ]; then
         echo "  ℹ️  First release, skipping..."
         continue
     fi
     
-    # Find the changelog commit for the previous release
-    CHANGELOG_COMMIT=$(git log --grep="Update CHANGELOG for ${PREV_TAG}" --format="%H" | head -1)
+    # Get commits for this release
+    COMMIT_MESSAGES=$(get_commits_for_range "${LOWER_BOUND}" "${UPPER_BOUND}" "true")
     
-    if [ -n "$CHANGELOG_COMMIT" ]; then
-        echo "  📝 Using changelog commit ${CHANGELOG_COMMIT:0:7} as reference"
-        # Get commits between changelog and this tag, excluding automated commits
-        COMMIT_MESSAGES=$(git log ${CHANGELOG_COMMIT}..${TAG} --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
-    else
-        echo "  📝 No changelog found, using previous tag as reference"
-        # Fallback to previous tag
-        COMMIT_MESSAGES=$(git log ${PREV_TAG}..${TAG} --pretty=format:"- %s" --reverse | grep -v "^- 📝 Update CHANGELOG")
-    fi
+    # Get tag date and create changelog anchor
+    TAG_DATE=$(get_tag_date "${TAG}")
+    CHANGELOG_ANCHOR=$(get_changelog_anchor "${TAG}" "${TAG_DATE}")
     
     # Build new release notes
     NEW_NOTES="## Changes since ${PREV_TAG}
 
 $COMMIT_MESSAGES
 
-📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${TAG//./}---$(git log -1 --format=%cd --date=format:%Y-%m-%d ${TAG}))"
+📝 [View Release Changelog](https://github.com/loganpowell/microvector/blob/main/CHANGELOG.md#${CHANGELOG_ANCHOR})"
     
     echo "  📋 New notes preview:"
     echo "$NEW_NOTES" | head -10
