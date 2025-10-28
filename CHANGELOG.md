@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
 
+### Changed
+
+- Truncates diff for LLM summary and modulates scripts for testing
+- fixes repo references in release update fn
+
+## [v0.2.18](https://github.com/loganpowell/microvector/releases/tag/v0.2.18) - 2025-10-28
+
 ### Added
 - New scripts for changelog and benchmark summary generation
 - Tools for truncating git diffs to token limits for AI model consumption
