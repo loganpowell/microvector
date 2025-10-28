@@ -47,10 +47,12 @@ def sample_documents():
     ]
 
 
-def pytest_configure(config):  # type: ignore
+def pytest_configure(config):
     """Configure pytest with custom markers."""
-    config.addinivalue_line(  # type: ignore
+    config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line("markers", "integration: marks tests as integration tests")  # type: ignore
-    config.addinivalue_line("markers", "benchmark: marks tests as performance benchmarks")  # type: ignore
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line(
+        "markers", "benchmark: marks tests as performance benchmarks"
+    )

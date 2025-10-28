@@ -33,7 +33,7 @@ class Client:
         cache_vectors: Path to directory for caching vector stores.
             Defaults to VECTOR_CACHE_DIR
         embedding_model: HuggingFace embedding model name.
-            Defaults to "sentence-transformers/all-MiniLM-L6-v2"
+            Defaults to "avsolatorio/GIST-small-Embedding-v0"
 
     Example:
         >>> client = Client()
@@ -161,11 +161,11 @@ class Client:
             term: Search query string
             partition: Name of the partition to search
             key: The field name in documents that was vectorized. Defaults to "text"
-            top_k: Number of top results to return. Defaults to 5
+            top_k: Number of top results to return (default: **5**)
             collection: Optional collection to create a new vector store from.
                 If provided with cache=False, creates a temporary in-memory store
-            cache: Whether to persist the vector store to disk. Defaults to True
-            algo: Similarity metric to use. One of: "cosine", "dot", "euclidean", "derrida"
+            cache: Whether to persist the vector store to disk (default: **True**)
+            algo: Similarity metric to use. One of: "cosine" (default), "dot", "euclidean", "derrida"
             append: If True, adds new vectors to existing cache. If False (default),
                 replaces existing cache with new vectors. Only relevant when providing
                 a collection with cache=True

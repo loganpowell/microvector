@@ -7,7 +7,5 @@ __pycache__/
 .cached_models/
 .vector_cache/
 .pytest_cache/
-**/.test_model_cache/
-**/.test_cached_models/
-**/.test_vector_cache/
+**/.test**
 temporary/
