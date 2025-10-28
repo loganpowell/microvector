@@ -41,7 +41,13 @@ jobs:
           source scripts/get_release_range.sh
           
           # Get current tag from either release event or manual input
-          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            CURRENT_TAG="${{ github.event.release.tag_name }}"
+          else
+            CURRENT_TAG="${{ inputs.tag_name }}"
+          fi
+          
+          echo "📦 Processing release: $CURRENT_TAG"
           
           # Get commit range for this release
           get_release_range "$CURRENT_TAG" "false"  # false = use tag as upper bound (not changelog commit)
@@ -114,7 +120,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          # Get current tag from either release event or manual input
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            CURRENT_TAG="${{ github.event.release.tag_name }}"
+          else
+            CURRENT_TAG="${{ inputs.tag_name }}"
+          fi
+          
           PREV_TAG="${{ steps.prev_release.outputs.prev_tag }}"
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
@@ -169,9 +181,14 @@ jobs:
 
       - name: Update CHANGELOG.md
         run: |
-          # Use the script to update CHANGELOG.md
-          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          # Get current tag from either release event or manual input
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            CURRENT_TAG="${{ github.event.release.tag_name }}"
+          else
+            CURRENT_TAG="${{ inputs.tag_name }}"
+          fi
           
+          # Use the script to update CHANGELOG.md
           uv run python scripts/update_changelog.py \
             --changelog CHANGELOG.md \
             --entry changelog_entry.md \
@@ -183,7 +200,12 @@ jobs:
 
       - name: Commit and push changelog
         run: |
-          CURRENT_TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          # Get current tag from either release event or manual input
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            CURRENT_TAG="${{ github.event.release.tag_name }}"
+          else
+            CURRENT_TAG="${{ inputs.tag_name }}"
+          fi
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -205,7 +227,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ github.event.release.tag_name || inputs.tag_name }}"
+          # Get current tag from either release event or manual input
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ inputs.tag_name }}"
+          fi
+          
+          echo "📝 Updating release notes for $VERSION"
 
           # Create changelog link
           # Convert version to GitHub anchor format: v0.1.26 -> v0126---2025-10-23
