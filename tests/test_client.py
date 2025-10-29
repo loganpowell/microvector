@@ -18,9 +18,9 @@ def temp_cache_dirs(shared_model_cache: str) -> Generator[tuple[str, str], None,
     """Create temporary directories for testing caches."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Use shared session-scoped model cache to avoid re-downloading
-        cache_models = shared_model_cache
-        cache_vectors = os.path.join(tmpdir, "vectors")
-        yield cache_models, cache_vectors
+        model_cache = shared_model_cache
+        vector_cache = os.path.join(tmpdir, "vectors")
+        yield model_cache, vector_cache
 
 
 @pytest.fixture
@@ -38,10 +38,10 @@ def sample_collection() -> list[dict[str, str]]:
 @pytest.fixture
 def client(temp_cache_dirs: tuple[str, str]) -> Client:
     """Create a test client with temporary cache directories."""
-    cache_models, cache_vectors = temp_cache_dirs
+    model_cache, vector_cache = temp_cache_dirs
     return Client(
-        cache_models=cache_models,
-        cache_vectors=cache_vectors,
+        model_cache=model_cache,
+        vector_cache=vector_cache,
         embedding_model=EMBEDDING_MODEL,
     )
 
@@ -52,38 +52,38 @@ class TestClientInitialization:
     def test_client_init_default_paths(self) -> None:
         """Test client initialization with default paths."""
         client = Client()
-        assert client.cache_models == MODEL_CACHE_DIR
-        assert client.cache_vectors == VECTOR_CACHE_DIR
+        assert client.model_cache == MODEL_CACHE_DIR
+        assert client.vector_cache == VECTOR_CACHE_DIR
         assert client.embedding_model == EMBEDDING_MODEL
 
     def test_client_init_custom_paths(self, temp_cache_dirs: tuple[str, str]) -> None:
         """Test client initialization with custom paths."""
-        cache_models, cache_vectors = temp_cache_dirs
+        model_cache, vector_cache = temp_cache_dirs
         client = Client(
-            cache_models=cache_models,
-            cache_vectors=cache_vectors,
+            model_cache=model_cache,
+            vector_cache=vector_cache,
             embedding_model=EMBEDDING_MODEL,
         )
-        assert client.cache_models == cache_models
-        assert client.cache_vectors == cache_vectors
-        assert os.path.exists(cache_models)
-        assert os.path.exists(cache_vectors)
+        assert client.model_cache == model_cache
+        assert client.vector_cache == vector_cache
+        assert os.path.exists(model_cache)
+        assert os.path.exists(vector_cache)
 
     def test_client_creates_cache_directories(
         self, temp_cache_dirs: tuple[str, str]
     ) -> None:
         """Test that client creates cache directories if they don't exist."""
-        cache_models, cache_vectors = temp_cache_dirs
+        model_cache, vector_cache = temp_cache_dirs
         # Model cache is now session-scoped and already exists
-        assert os.path.exists(cache_models)
+        assert os.path.exists(model_cache)
         # Vector cache should not exist yet
-        assert not os.path.exists(cache_vectors)
+        assert not os.path.exists(vector_cache)
 
-        Client(cache_models=cache_models, cache_vectors=cache_vectors)
+        Client(model_cache=model_cache, vector_cache=vector_cache)
 
         # Both should exist after Client initialization
-        assert os.path.exists(cache_models)
-        assert os.path.exists(cache_vectors)
+        assert os.path.exists(model_cache)
+        assert os.path.exists(vector_cache)
 
 
 class TestClientSave:
@@ -92,18 +92,16 @@ class TestClientSave:
     def test_save_returns_success_info(
         self, client: Client, sample_collection: list[dict[str, str]]
     ) -> None:
-        """Test that save returns proper status information."""
-        result = client.save(
+        """Test that save returns a PartitionStore with proper attributes."""
+        store = client.save(
             partition="test_partition",
             collection=sample_collection,
         )
 
-        assert result["status"] == "success"
-        assert result["partition"] == "test_partition"
-        assert result["documents_saved"] == len(sample_collection)
-        assert result["key"] == "text"
-        assert result["algorithm"] == "cosine"
-        assert "embedding_model" in result
+        assert store.partition == "test_partition"
+        assert store.size == len(sample_collection)
+        assert store.key == "text"
+        assert store.algo == "cosine"
 
     def test_save_creates_pickle_file(
         self,
@@ -112,13 +110,14 @@ class TestClientSave:
         temp_cache_dirs: tuple[str, str],
     ) -> None:
         """Test that save creates a pickle file in the cache directory."""
-        _, cache_vectors = temp_cache_dirs
+        _, vector_cache = temp_cache_dirs
         client.save(
             partition="test_partition",
             collection=sample_collection,
+            cache=True,  # Need to persist to disk
         )
 
-        expected_file = Path(cache_vectors) / "test_partition.pickle.gz"
+        expected_file = Path(vector_cache) / "test_partition.pickle.gz"
         assert expected_file.exists()
 
     def test_save_with_custom_key(self, client: Client) -> None:
@@ -127,29 +126,33 @@ class TestClientSave:
             {"description": "First item", "value": 1},
             {"description": "Second item", "value": 2},
         ]
-        result = client.save(
+        store = client.save(
             partition="custom_key_test",
             collection=collection,  # type: ignore
             key="description",
         )
 
-        assert result["status"] == "success"
-        assert result["key"] == "description"
+        assert store.key == "description"
 
     def test_save_with_different_algorithms(
-        self, client: Client, sample_collection: list[dict[str, str]]
+        self, sample_collection: list[dict[str, str]], temp_cache_dirs: tuple[str, str]
     ) -> None:
         """Test saving with different similarity algorithms."""
-        algorithms = ["cosine", "dot", "euclidean", "derrida"]
+        model_cache, vector_cache = temp_cache_dirs
+        algorithms: list = ["cosine", "dot", "euclidean", "derrida"]  # type: ignore
 
         for algo in algorithms:
-            result = client.save(
+            # Create client with specific algorithm
+            client = Client(
+                model_cache=model_cache,
+                vector_cache=vector_cache,
+                search_algo=algo,  # type: ignore
+            )
+            store = client.save(
                 partition=f"test_{algo}",
                 collection=sample_collection,
-                algo=algo,  # type: ignore
             )
-            assert result["status"] == "success"
-            assert result["algorithm"] == algo
+            assert store.algo == algo
 
 
 class TestClientSearch:
@@ -159,17 +162,15 @@ class TestClientSearch:
         self, client: Client, sample_collection: list[dict[str, str]]
     ) -> None:
         """Test that search returns relevant results."""
-        # First save the collection
-        client.save(
+        # Save the collection and get store
+        store = client.save(
             partition="search_test",
             collection=sample_collection,
         )
 
-        # Then search
-        results = client.search(
+        # Search the store
+        results = store.search(
             term="programming languages",
-            partition="search_test",
-            key="text",
             top_k=3,
         )
 
@@ -182,15 +183,13 @@ class TestClientSearch:
         self, client: Client, sample_collection: list[dict[str, str]]
     ) -> None:
         """Test that search returns relevant results in order."""
-        client.save(
+        store = client.save(
             partition="relevance_test",
             collection=sample_collection,
         )
 
-        results = client.search(
+        results = store.search(
             term="dog",
-            partition="relevance_test",
-            key="text",
             top_k=2,
         )
 
@@ -205,16 +204,14 @@ class TestClientSearch:
         self, client: Client, sample_collection: list[dict[str, str]]
     ) -> None:
         """Test that top_k parameter limits results."""
-        client.save(
+        store = client.save(
             partition="topk_test",
             collection=sample_collection,
         )
 
         for k in [1, 2, 3, 5]:
-            results = client.search(
+            results = store.search(
                 term="technology",
-                partition="topk_test",
-                key="text",
                 top_k=k,
             )
             assert results is not None
@@ -228,37 +225,43 @@ class TestClientSearch:
             {"text": "birds can fly in the sky", "type": "animal"},
         ]
 
-        results = client.search(
-            term="pet animals",
+        store = client.save(
             partition="temp_partition",
-            key="text",
-            top_k=2,
             collection=temp_collection,  # type: ignore
             cache=False,
+        )
+
+        results = store.search(
+            term="pet animals",
+            top_k=2,
         )
 
         assert results is not None
         assert len(results) <= 2
 
     def test_search_with_different_algorithms(
-        self, client: Client, sample_collection: list[dict[str, str]]
+        self, sample_collection: list[dict[str, str]], temp_cache_dirs: tuple[str, str]
     ) -> None:
         """Test searching with different similarity algorithms."""
-        algorithms = ["cosine", "dot", "euclidean"]
+        model_cache, vector_cache = temp_cache_dirs
+        algorithms: list = ["cosine", "dot", "euclidean"]  # type: ignore
 
         for algo in algorithms:
-            client.save(
-                partition=f"algo_test_{algo}",
-                collection=sample_collection,
-                algo=algo,  # type: ignore
+            # Create client with specific algorithm
+            test_client = Client(
+                model_cache=model_cache,
+                vector_cache=vector_cache,
+                search_algo=algo,  # type: ignore
             )
 
-            results = client.search(
-                term="programming",
+            store = test_client.save(
                 partition=f"algo_test_{algo}",
-                key="text",
+                collection=sample_collection,
+            )
+
+            results = store.search(
+                term="programming",
                 top_k=3,
-                algo=algo,  # type: ignore
             )
 
             assert results is not None
@@ -271,26 +274,32 @@ class TestClientSearch:
         temp_cache_dirs: tuple[str, str],
     ) -> None:
         """Test that cached partitions persist across client instances."""
-        _, cache_vectors = temp_cache_dirs
+        _, vector_cache = temp_cache_dirs
 
         # Save with first client
         client.save(
             partition="persistent_test",
             collection=sample_collection,
+            cache=True,  # Persist to disk
         )
 
         # Create new client instance with same cache directory AND same model
         new_client = Client(
-            cache_models=client.cache_models,
-            cache_vectors=cache_vectors,
+            model_cache=client.model_cache,
+            vector_cache=vector_cache,
             embedding_model=client.embedding_model,  # Use same model to avoid dimension mismatch
         )
 
-        # Should be able to search without providing collection again
-        results = new_client.search(
-            term="programming",
+        # Load the existing partition by calling save with no collection
+        store = new_client.save(
             partition="persistent_test",
-            key="text",
+            collection=[],  # Empty collection loads existing cache
+            cache=True,  # Load from cache
+        )
+
+        # Should be able to search the loaded partition
+        results = store.search(
+            term="programming",
             top_k=2,
         )
 
@@ -300,19 +309,17 @@ class TestClientSearch:
     def test_search_empty_term_returns_none(
         self, client: Client, sample_collection: list[dict[str, str]]
     ) -> None:
-        """Test that searching with empty term returns None."""
-        client.save(
+        """Test that searching with empty term returns empty list."""
+        store = client.save(
             partition="empty_term_test",
             collection=sample_collection,
         )
 
-        results = client.search(
+        results = store.search(
             term="",
-            partition="empty_term_test",
-            key="text",
         )
 
-        assert results is None
+        assert results == []
 
     def test_search_jurisdiction_collection(self, client: Client) -> None:
         """Test searching jurisdiction data by name."""
@@ -339,16 +346,14 @@ class TestClientSearch:
             },
         ]
 
-        client.save(
+        store = client.save(
             partition="Country",
             collection=collection,
             key="jurisdictionName",
         )
 
-        results = client.search(
+        results = store.search(
             term="US",
-            partition="Country",
-            key="jurisdictionName",
             top_k=5,
         )
 
@@ -367,12 +372,11 @@ class TestClientEdgeCases:
 
     def test_save_empty_collection(self, client: Client) -> None:
         """Test saving an empty collection."""
-        result = client.save(
+        store = client.save(
             partition="empty_collection",
             collection=[],
         )
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 0
+        assert store.size == 0
 
     def test_partition_normalization(
         self,
@@ -381,15 +385,16 @@ class TestClientEdgeCases:
         temp_cache_dirs: tuple[str, str],
     ) -> None:
         """Test that partition names are normalized (lowercase, underscores)."""
-        _, cache_vectors = temp_cache_dirs
+        _, vector_cache = temp_cache_dirs
 
         client.save(
             partition="Test Partition Name",
             collection=sample_collection,
+            cache=True,  # Persist to disk
         )
 
         # Should create file with normalized name
-        expected_file = Path(cache_vectors) / "test_partition_name.pickle.gz"
+        expected_file = Path(vector_cache) / "test_partition_name.pickle.gz"
         assert expected_file.exists()
 
     def test_search_with_collection_and_cache(self, client: Client) -> None:
@@ -400,21 +405,27 @@ class TestClientEdgeCases:
         ]
 
         # Should save the collection when cache=True
-        results = client.search(
-            term="document",
+        store = client.save(
             partition="cache_test",
-            key="text",
             collection=collection,  # type: ignore
             cache=True,
         )
 
+        results = store.search(
+            term="document",
+        )
+
         assert results is not None
 
-        # Should be able to search again without collection
-        results2 = client.search(
-            term="document",
+        # Should be able to load and search again
+        store2 = client.save(
             partition="cache_test",
-            key="text",
+            collection=[],  # Empty collection loads existing cache
+            cache=True,  # Load from cache
+        )
+
+        results2 = store2.search(
+            term="document",
         )
 
         assert results2 is not None
@@ -434,18 +445,16 @@ class TestClientIntegration:
             {"text": "Machine learning transforms industries"},
         ]
 
-        # Save collection
-        save_result = client.save(
+        # Save collection and get store
+        store = client.save(
             partition="ml_docs",
             collection=collection,
         )
-        assert save_result["status"] == "success"
+        assert store.size == len(collection)
 
         # Search for ML-related content
-        ml_results = client.search(
+        ml_results = store.search(
             term="artificial intelligence and machine learning",
-            partition="ml_docs",
-            key="text",
             top_k=3,
         )
 
@@ -455,10 +464,8 @@ class TestClientIntegration:
         assert any("learning" in r["text"].lower() for r in ml_results)
 
         # Search for programming content
-        prog_results = client.search(
+        prog_results = store.search(
             term="programming languages",
-            partition="ml_docs",
-            key="text",
             top_k=2,
         )
 
@@ -477,20 +484,16 @@ class TestClientIntegration:
         ]
 
         # Save to different partitions
-        client.save(partition="animals", collection=animals)
-        client.save(partition="tech", collection=tech)
+        animal_store = client.save(partition="animals", collection=animals)
+        tech_store = client.save(partition="tech", collection=tech)
 
         # Search each partition
-        animal_results = client.search(
+        animal_results = animal_store.search(
             term="pet sounds",
-            partition="animals",
-            key="text",
             top_k=2,
         )
-        tech_results = client.search(
+        tech_results = tech_store.search(
             term="software development",
-            partition="tech",
-            key="text",
             top_k=2,
         )
 
