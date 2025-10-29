@@ -20,18 +20,18 @@ from microvector.utils import EMBEDDING_MODEL
 def temp_cache_dirs(shared_model_cache: str) -> Generator[tuple[str, str], None, None]:
     """Create temporary directories for testing caches."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        cache_models = shared_model_cache
-        cache_vectors = os.path.join(tmpdir, "vectors")
-        yield cache_models, cache_vectors
+        model_cache = shared_model_cache
+        vector_cache = os.path.join(tmpdir, "vectors")
+        yield model_cache, vector_cache
 
 
 @pytest.fixture
 def client(temp_cache_dirs: tuple[str, str]) -> Client:
     """Create a test client with temporary cache directories."""
-    cache_models, cache_vectors = temp_cache_dirs
+    model_cache, vector_cache = temp_cache_dirs
     return Client(
-        cache_models=cache_models,
-        cache_vectors=cache_vectors,
+        model_cache=model_cache,
+        vector_cache=vector_cache,
         embedding_model=EMBEDDING_MODEL,
     )
 
@@ -88,44 +88,40 @@ class TestDotNotationKeyAccess:
         self, client: Client, nested_documents: list[dict]
     ) -> None:
         """Test using dot notation for single level nesting."""
-        result = client.save(
+        store = client.save(
             partition="nested_single",
             collection=nested_documents,  # type: ignore
             key="metadata.author",
         )
 
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 3
-        assert result["key"] == "metadata.author"
+        assert store.size == 3
+        assert store.key == "metadata.author"
 
     def test_multi_level_nested_key(
         self, client: Client, deeply_nested_documents: list[dict]
     ) -> None:
         """Test using dot notation for multi-level nesting."""
-        result = client.save(
+        store = client.save(
             partition="nested_deep",
             collection=deeply_nested_documents,  # type: ignore
             key="content.metadata.tags.primary",
         )
 
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 2
-        assert result["key"] == "content.metadata.tags.primary"
+        assert store.size == 2
+        assert store.key == "content.metadata.tags.primary"
 
     def test_search_with_nested_key(
         self, client: Client, nested_documents: list[dict]
     ) -> None:
         """Test searching with a nested key."""
-        client.save(
+        store = client.save(
             partition="search_nested",
             collection=nested_documents,  # type: ignore
             key="metadata.author",
         )
 
-        results = client.search(
+        results = store.search(
             term="Alice",
-            partition="search_nested",
-            key="metadata.author",
             top_k=2,
         )
 
@@ -201,23 +197,23 @@ class TestDotNotationKeyAccess:
         ]
 
         # Save using specs.description
-        result1 = client.save(
+        store1 = client.save(
             partition="by_specs",
             collection=documents,  # type: ignore
             key="specs.description",
         )
 
         # Save using reviews.summary
-        result2 = client.save(
+        store2 = client.save(
             partition="by_reviews",
             collection=documents,  # type: ignore
             key="reviews.summary",
         )
 
-        assert result1["status"] == "success"
-        assert result2["status"] == "success"
-        assert result1["key"] == "specs.description"
-        assert result2["key"] == "reviews.summary"
+        assert store1.size == 2
+        assert store2.size == 2
+        assert store1.key == "specs.description"
+        assert store2.key == "reviews.summary"
 
     def test_nested_key_with_none_value(self, shared_model_cache: str) -> None:
         """Test that documents with None value in nested key are filtered."""
@@ -238,31 +234,24 @@ class TestDotNotationKeyAccess:
     def test_append_with_nested_key(
         self, client: Client, nested_documents: list[dict]
     ) -> None:
-        """Test appending documents with nested keys."""
+        """Test adding documents with nested keys using PartitionStore.add()."""
         # Initial save
-        client.save(
+        store = client.save(
             partition="append_nested",
             collection=nested_documents[:2],  # type: ignore
             key="metadata.author",
             append=False,
         )
 
-        # Append more
-        result = client.save(
-            partition="append_nested",
-            collection=nested_documents[2:],  # type: ignore
-            key="metadata.author",
-            append=True,
-        )
+        # Add more documents using PartitionStore.add()
+        success = store.add(nested_documents[2:], cache=True)
 
-        assert result["status"] == "success"
-        assert result["append"] is True
+        assert success is True
+        assert store.size == 3
 
         # Verify all documents are searchable
-        results = client.search(
+        results = store.search(
             term="author",
-            partition="append_nested",
-            key="metadata.author",
             top_k=5,
         )
 
