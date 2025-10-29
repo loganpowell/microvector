@@ -121,32 +121,14 @@ class Store:
         collection: Union[Any, list[Any]],
         vectors: Optional[FloatArray] = None,
     ) -> None:
+        # Always treat as a collection - wrap single items in a list
         if not isinstance(collection, list):
-            self.add_document(collection, vectors)
-        else:
-            self.add_collection(collection, vectors)  # type: ignore
+            collection = [collection]
+            if vectors is not None and vectors.ndim == 1:
+                # Single vector - reshape to 2D
+                vectors = vectors.reshape(1, -1)
 
-    def add_document(self, document: Any, vector: Optional[FloatArray] = None) -> None:
-        resolved_vector: FloatArray = (
-            vector if vector is not None else self.embedding_function([document])[0]
-        )
-        if self.vectors is None:
-            self.vectors = np.empty((0, len(resolved_vector)), dtype=np.float32)
-        elif len(resolved_vector) != self.vectors.shape[1]:
-            raise ValueError("All vectors must have the same length.")
-        self.vectors = np.vstack([self.vectors, resolved_vector]).astype(np.float32)
-        self.collection.append(document)
-
-        # Mark for re-normalization and pre-process if using cosine
-        self._vectors_normalized = False
-        self._pre_process()
-
-    def remove_document(self, index: int) -> None:
-        if self.vectors is not None:
-            self.vectors = np.delete(self.vectors, index, axis=0)
-        self.collection.pop(index)
-        # Vectors are still normalized after deletion (just fewer of them)
-        # No need to re-normalize
+        self.add_collection(collection, vectors)
 
     def add_collection(
         self, collection: list[Any], vectors: Optional[FloatArray] = None
@@ -175,6 +157,45 @@ class Store:
         # Mark for re-normalization and pre-process if using cosine
         self._vectors_normalized = False
         self._pre_process()
+
+    def remove_document(self, document: Union[int, Any]) -> bool:
+        """
+        Remove a document from the store.
+
+        Args:
+            document: Either an integer index or the document itself.
+                     If an integer, removes the document at that index.
+                     If not an integer, searches for the document in the collection
+                     and removes it if found.
+
+        Returns:
+            True if document was found and removed, False otherwise.
+
+        Raises:
+            IndexError: If integer index is out of range.
+        """
+        if isinstance(document, int):
+            # Direct index removal
+            if document < 0 or document >= len(self.collection):
+                raise IndexError(
+                    f"Index {document} out of range for collection of size {len(self.collection)}"
+                )
+
+            if self.vectors is not None:
+                self.vectors = np.delete(self.vectors, document, axis=0)
+            self.collection.pop(document)
+            return True
+        else:
+            # Find and remove by document content
+            try:
+                index = self.collection.index(document)
+                if self.vectors is not None:
+                    self.vectors = np.delete(self.vectors, index, axis=0)
+                self.collection.pop(index)
+                return True
+            except ValueError:
+                # Document not found in collection
+                return False
 
     def save(self, storage_file: str) -> None:
         # Ensure parent directory exists
