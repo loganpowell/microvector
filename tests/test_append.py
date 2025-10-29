@@ -1,8 +1,8 @@
 """
-Test suite for the append parameter functionality.
+Test suite for PartitionStore.add() functionality.
 
-Tests the ability to append new vectors to existing caches versus
-replacing them entirely.
+Tests the ability to add new documents to existing stores versus
+replacing them entirely, and the persistence behavior with cache parameter.
 """
 
 import os
@@ -21,18 +21,18 @@ def temp_cache_dirs(shared_model_cache: str) -> Generator[tuple[str, str], None,
     """Create temporary directories for testing caches."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Use shared session-scoped model cache to avoid re-downloading
-        cache_models = shared_model_cache
-        cache_vectors = os.path.join(tmpdir, "vectors")
-        yield cache_models, cache_vectors
+        model_cache = shared_model_cache
+        vector_cache = os.path.join(tmpdir, "vectors")
+        yield model_cache, vector_cache
 
 
 @pytest.fixture
 def client(temp_cache_dirs: tuple[str, str]) -> Client:
     """Create a test client with temporary cache directories."""
-    cache_models, cache_vectors = temp_cache_dirs
+    model_cache, vector_cache = temp_cache_dirs
     return Client(
-        cache_models=cache_models,
-        cache_vectors=cache_vectors,
+        model_cache=model_cache,
+        vector_cache=vector_cache,
         embedding_model=EMBEDDING_MODEL,
     )
 
@@ -48,7 +48,7 @@ def initial_collection() -> list[dict[str, str]]:
 
 @pytest.fixture
 def additional_collection() -> list[dict[str, str]]:
-    """Additional documents to append."""
+    """Additional documents to add."""
     return [
         {"text": "Ruby is an elegant programming language", "category": "tech"},
         {"text": "Go is great for concurrent programming", "category": "tech"},
@@ -64,32 +64,27 @@ def replacement_collection() -> list[dict[str, str]]:
     ]
 
 
-class TestClientAppend:
-    """Tests for Client.save() with append parameter."""
+class TestPartitionStoreAdd:
+    """Tests for PartitionStore.add() method."""
 
     def test_save_initial_append_false(
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
         """Test creating initial vector store with append=False."""
-        result = client.save(
+        store = client.save(
             partition="test_partition",
             collection=initial_collection,
             key="text",
             append=False,
         )
 
-        assert result["status"] == "success"
-        assert result["partition"] == "test_partition"
-        assert result["documents_saved"] == 2
-        assert result["append"] is False
-        assert "embedding_model" in result
-        assert result["embedding_model"]  # Should have a value
+        assert store.partition == "test_partition"
+        assert store.size == 2
+        assert store.key == "text"
 
         # Verify we can search the store
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="test_partition",
-            key="text",
             top_k=2,
         )
         assert results is not None
@@ -99,59 +94,50 @@ class TestClientAppend:
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
         """Test creating initial vector store with append=True (should work same as False)."""
-        result = client.save(
+        store = client.save(
             partition="test_partition",
             collection=initial_collection,
             key="text",
             append=True,
         )
 
-        assert result["status"] == "success"
-        assert result["append"] is True
-        assert "embedding_model" in result
+        assert store.size == 2
+        assert store.key == "text"
 
         # Verify we can search the store
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="test_partition",
-            key="text",
             top_k=2,
         )
         assert results is not None
         assert len(results) == 2
 
-    def test_append_to_existing_store(
+    def test_add_to_existing_store(
         self,
         client: Client,
         initial_collection: list[dict[str, str]],
         additional_collection: list[dict[str, str]],
     ) -> None:
-        """Test appending documents to existing vector store."""
+        """Test adding documents to existing vector store using PartitionStore.add()."""
         # Create initial store
-        client.save(
+        store = client.save(
             partition="test_partition",
             collection=initial_collection,
             key="text",
             append=False,
         )
 
-        # Append additional documents
-        result = client.save(
-            partition="test_partition",
-            collection=additional_collection,
-            key="text",
-            append=True,
-        )
+        assert store.size == 2
 
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 2
-        assert result["append"] is True
+        # Add additional documents using the add() method
+        success = store.add(additional_collection, cache=True)
+
+        assert success is True
+        assert store.size == 4
 
         # Verify all 4 documents are searchable
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="test_partition",
-            key="text",
             top_k=4,
         )
         assert results is not None
@@ -177,23 +163,19 @@ class TestClientAppend:
             append=False,
         )
 
-        # Replace with new documents
-        result = client.save(
+        # Replace with new documents using save with append=False
+        store = client.save(
             partition="test_partition",
             collection=replacement_collection,
             key="text",
             append=False,
         )
 
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 2
-        assert result["append"] is False
+        assert store.size == 2
 
         # Verify only new documents are searchable
-        results = client.search(
+        results = store.search(
             term="AI neural networks",
-            partition="test_partition",
-            key="text",
             top_k=4,
         )
         assert results is not None
@@ -205,130 +187,117 @@ class TestClientAppend:
         assert not any("Python" in t or "JavaScript" in t for t in texts)
         assert any("Machine learning" in t or "Deep learning" in t for t in texts)
 
-    def test_multiple_appends(
+    def test_multiple_adds(
         self,
         client: Client,
         initial_collection: list[dict[str, str]],
         additional_collection: list[dict[str, str]],
     ) -> None:
-        """Test multiple append operations."""
+        """Test multiple add operations using PartitionStore.add()."""
         # Create initial store
-        client.save(
+        store = client.save(
             partition="test_partition",
             collection=initial_collection,
             key="text",
         )
 
-        # First append
-        client.save(
-            partition="test_partition",
-            collection=additional_collection,
-            key="text",
-            append=True,
-        )
+        # First add
+        store.add(additional_collection, cache=True)
 
-        # Second append
+        # Second add
         third_batch = [
             {"text": "Rust is a systems programming language", "category": "tech"},
         ]
-        client.save(
-            partition="test_partition",
-            collection=third_batch,
-            key="text",
-            append=True,
-        )
+        store.add(third_batch, cache=True)
 
         # Verify all 5 documents are searchable
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="test_partition",
-            key="text",
             top_k=5,
         )
         assert results is not None
         assert len(results) == 5
 
-    def test_append_with_different_similarity_metrics(
-        self, client: Client, initial_collection: list[dict[str, str]]
+    def test_add_with_different_similarity_metrics(
+        self, initial_collection: list[dict[str, str]], temp_cache_dirs: tuple[str, str]
     ) -> None:
-        """Test append with different similarity algorithms."""
-        for algo in ["cosine", "dot", "euclidean"]:
+        """Test add() with different similarity algorithms."""
+        model_cache, vector_cache = temp_cache_dirs
+
+        for algo in ["cosine", "dot", "euclidean"]:  # type: ignore
             partition = f"test_{algo}"
 
+            # Create client with specific algorithm
+            test_client = Client(
+                model_cache=model_cache,
+                vector_cache=vector_cache,
+                search_algo=algo,  # type: ignore
+            )
+
             # Initial save
-            client.save(
+            store = test_client.save(
                 partition=partition,
                 collection=initial_collection,
                 key="text",
-                algo=algo,  # type: ignore
             )
 
-            # Append
-            client.save(
-                partition=partition,
-                collection=[
-                    {"text": "TypeScript adds types to JavaScript", "category": "tech"}
-                ],
-                key="text",
-                algo=algo,  # type: ignore
-                append=True,
+            # Add using PartitionStore.add()
+            store.add(
+                [{"text": "TypeScript adds types to JavaScript", "category": "tech"}],
+                cache=True,
             )
 
             # Verify search works
-            results = client.search(
+            results = store.search(
                 term="programming",
-                partition=partition,
-                key="text",
                 top_k=3,
-                algo=algo,  # type: ignore
             )
             assert results is not None
             assert len(results) == 3
 
 
-class TestClientSearchWithAppend:
-    """Tests for Client.search() with append parameter."""
+class TestPartitionStoreSearchAndAdd:
+    """Tests for combining PartitionStore.search() and add() operations."""
 
-    def test_search_with_collection_append_false(self, client: Client) -> None:
-        """Test search with collection parameter and append=False."""
+    def test_save_and_search(self, client: Client) -> None:
+        """Test saving then searching with PartitionStore."""
         collection = [
             {"text": "First document about Python"},
             {"text": "Second document about JavaScript"},
         ]
 
-        results = client.search(
-            term="Python",
+        store = client.save(
             partition="temp_search",
-            key="text",
             collection=collection,
             cache=True,
-            append=False,
+        )
+
+        results = store.search(
+            term="Python",
             top_k=2,
         )
 
         assert results is not None
         assert len(results) == 2
 
-    def test_search_with_collection_append_true(
+    def test_add_then_search(
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
-        """Test search that appends to existing cache."""
+        """Test adding to existing store then searching."""
         # Create initial cache
-        client.save(
-            partition="search_append_test",
+        store = client.save(
+            partition="search_add_test",
             collection=initial_collection,
             key="text",
         )
 
-        # Search with additional collection and append=True
+        # Add additional documents
         new_docs = [{"text": "Kotlin is a modern JVM language"}]
-        results = client.search(
+        store.add(new_docs, cache=True)
+
+        # Search should find all documents
+        results = store.search(
             term="programming",
-            partition="search_append_test",
-            key="text",
-            collection=new_docs,
-            cache=True,
-            append=True,
             top_k=3,
         )
 
@@ -336,32 +305,33 @@ class TestClientSearchWithAppend:
         assert len(results) == 3  # 2 initial + 1 new
 
 
-class TestVectorSearchAppend:
-    """Tests for vector_search() function with append parameter."""
+class TestVectorSearchWithPartitionStore:
+    """Tests for vector_search() function with PartitionStore."""
 
-    def test_vector_search_append_false(
+    def test_vector_search_save_replace(
         self, temp_cache_dirs: tuple[str, str], initial_collection: list[dict[str, str]]
     ) -> None:
         """Test replacing with append=False using Client API."""
-        cache_models, cache_vectors = temp_cache_dirs
+        model_cache, vector_cache = temp_cache_dirs
 
         # Use Client API for both operations to ensure same cache paths
-        client = Client(cache_models=cache_models, cache_vectors=cache_vectors)
+        client = Client(model_cache=model_cache, vector_cache=vector_cache)
         client.save(
             partition="vector_search_test",
             collection=initial_collection,
             key="text",
         )
 
-        # Replace using client.search with collection
+        # Replace using save with append=False
         new_collection = [{"text": "Completely new document"}]
-        results = client.search(
-            term="document",
+        store = client.save(
             partition="vector_search_test",
-            key="text",
             collection=new_collection,
-            cache=True,
-            append=False,
+        )
+
+        # Search the replaced store
+        results = store.search(
+            term="document",
             top_k=2,
         )
 
@@ -370,77 +340,71 @@ class TestVectorSearchAppend:
         assert len(results) == 1
         assert "new document" in results[0]["text"]
 
-    def test_vector_search_append_true(
+    def test_vector_search_with_add(
         self, temp_cache_dirs: tuple[str, str], initial_collection: list[dict[str, str]]
     ) -> None:
-        """Test vector_search with append=True using Client API."""
-        cache_models, cache_vectors = temp_cache_dirs
+        """Test using PartitionStore.add() to append documents."""
+        model_cache, vector_cache = temp_cache_dirs
 
-        # Use Client API for both operations to ensure same cache paths
-        client = Client(cache_models=cache_models, cache_vectors=cache_vectors)
-        client.save(
-            partition="vector_search_append",
+        # Use Client API to create initial store
+        client = Client(model_cache=model_cache, vector_cache=vector_cache)
+        store = client.save(
+            partition="vector_search_add",
             collection=initial_collection,
             key="text",
         )
 
-        # Append using client.search with collection
+        # Add using PartitionStore.add()
         new_collection = [{"text": "Swift is used for iOS development"}]
-        results = client.search(
+        store.add(new_collection, cache=True)
+
+        # Search should find all documents
+        results = store.search(
             term="programming development",
-            partition="vector_search_append",
-            key="text",
-            collection=new_collection,
-            cache=True,
-            append=True,
             top_k=3,
         )
 
         assert results is not None
-        assert len(results) == 3  # 2 initial + 1 appended
+        assert len(results) == 3  # 2 initial + 1 added
 
 
-class TestAppendEdgeCases:
-    """Tests for edge cases with append functionality."""
+class TestPartitionStoreEdgeCases:
+    """Tests for edge cases with PartitionStore.add() functionality."""
 
-    def test_temporary_append_to_existing_cache(
+    def test_add_without_cache(
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
-        """Test temporarily appending to existing cache without persisting (cache=False, append=True)."""
+        """Test adding to store without persisting (cache=False)."""
         # Create persistent cache
-        client.save(
-            partition="temp_append_test",
+        store = client.save(
+            partition="temp_add_test",
             collection=initial_collection,
             key="text",
+            cache=True,  # Create persistent cache
         )
 
         # Verify initial cache has 2 documents
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="temp_append_test",
-            key="text",
             top_k=5,
         )
         assert results is not None
         assert len(results) == 2
 
-        # Temporarily append without persisting
+        # Add without persisting
         additional_docs = [
             {"text": "Ruby is an elegant programming language", "category": "tech"},
             {"text": "Go is great for concurrent programming", "category": "tech"},
         ]
 
-        results = client.search(
+        store.add(additional_docs, cache=False)  # Don't persist
+
+        # Should have all 4 documents in memory
+        results = store.search(
             term="programming",
-            partition="temp_append_test",
-            key="text",
-            collection=additional_docs,
-            cache=False,  # Don't persist
-            append=True,  # But load existing and append in memory
             top_k=5,
         )
 
-        # Should have all 4 documents (2 original + 2 temporary)
         assert results is not None
         assert len(results) == 4
 
@@ -448,11 +412,15 @@ class TestAppendEdgeCases:
         assert any("Python" in t for t in texts)
         assert any("Ruby" in t or "Go" in t for t in texts)
 
-        # Verify persistent cache still only has original 2 documents
-        results = client.search(
+        # Reload the store to verify only original 2 documents were persisted
+        new_store = client.save(
+            partition="temp_add_test",
+            collection=[],  # Load existing
+            cache=True,  # Load from cache
+        )
+
+        results = new_store.search(
             term="programming",
-            partition="temp_append_test",
-            key="text",
             top_k=5,
         )
         assert results is not None
@@ -462,91 +430,80 @@ class TestAppendEdgeCases:
         assert any("Python" in t for t in texts)
         assert not any("Ruby" in t or "Go" in t for t in texts)
 
-    def test_append_empty_collection(
+    def test_add_empty_collection(
         self, client: Client, initial_collection: list[dict[str, str]]
     ) -> None:
-        """Test appending an empty collection."""
+        """Test adding an empty collection."""
         # Create initial store
-        client.save(
-            partition="test_empty_append",
+        store = client.save(
+            partition="test_empty_add",
             collection=initial_collection,
             key="text",
         )
 
-        # Append empty collection - should not fail
-        result = client.save(
-            partition="test_empty_append",
-            collection=[],
-            key="text",
-            append=True,
-        )
+        initial_size = store.size
 
-        assert result["status"] == "success"
-        assert result["documents_saved"] == 0
+        # Add empty collection - should not fail
+        success = store.add([], cache=True)
+
+        assert success is True
+        assert store.size == initial_size
 
         # Original documents should still be there
-        results = client.search(
+        results = store.search(
             term="programming",
-            partition="test_empty_append",
-            key="text",
             top_k=2,
         )
         assert results is not None
         assert len(results) == 2
 
-    def test_append_without_cache(self, client: Client) -> None:
-        """Test that append parameter is ignored when cache=False."""
+    def test_add_without_existing_cache(self, client: Client) -> None:
+        """Test that creating a non-cached store works."""
         collection = [{"text": "Document without cache"}]
 
-        results = client.search(
-            term="Document",
+        store = client.save(
             partition="no_cache_test",
-            key="text",
             collection=collection,
             cache=False,
-            append=True,  # Should be ignored
+        )
+
+        results = store.search(
+            term="Document",
             top_k=1,
         )
 
         assert results is not None
         assert len(results) == 1
 
-    def test_replace_then_append(
+    def test_replace_then_add(
         self,
         client: Client,
         initial_collection: list[dict[str, str]],
         replacement_collection: list[dict[str, str]],
         additional_collection: list[dict[str, str]],
     ) -> None:
-        """Test replacing a store and then appending to the new version."""
+        """Test replacing a store and then adding to the new version."""
         # Create initial
         client.save(
-            partition="replace_append_test",
+            partition="replace_add_test",
             collection=initial_collection,
             key="text",
         )
 
-        # Replace
-        client.save(
-            partition="replace_append_test",
+        # Replace with new store
+        store = client.save(
+            partition="replace_add_test",
             collection=replacement_collection,
             key="text",
             append=False,
         )
 
-        # Append to the replaced store
-        client.save(
-            partition="replace_append_test",
-            collection=additional_collection,
-            key="text",
-            append=True,
-        )
+        # Add to the replaced store
+        store.add(additional_collection, cache=True)
 
         # Should have replacement + additional (4 total)
-        results = client.search(
+        results = store.search(
             term="AI programming neural networks",
-            partition="replace_append_test",
-            key="text",
             top_k=5,
         )
 
@@ -558,5 +515,5 @@ class TestAppendEdgeCases:
         assert not any("Python" in t and "programming language" in t for t in texts)
         # Should have replacement documents
         assert any("Machine learning" in t or "Deep learning" in t for t in texts)
-        # Should have appended documents
+        # Should have added documents
         assert any("Ruby" in t or "Go" in t for t in texts)
