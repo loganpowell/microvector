@@ -165,10 +165,12 @@ jobs:
           IS_FIRST="${{ steps.prev_release.outputs.first_release }}"
 
           # Truncate functional diff using the script
+          # Note: grok-3 has 4000 token limit for entire request body
+          # Reserve ~1500 tokens for commits, files summary, and prompt
           uv run python scripts/truncate_diff.py \
             functional_diff.txt \
             truncated_diff.txt \
-            --max-tokens 3500
+            --max-tokens 2500
 
           # Create a concise context file for the AI
           cat > ai_context.txt << CONTEXT_EOF
