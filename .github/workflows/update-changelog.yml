@@ -178,7 +178,7 @@ jobs:
           $(cat commits.txt)
 
           Files Changed:
-          $(cat diff_summary.txt | grep -E '\.(py|js|ts|jsx|tsx|c|cpp|h|go|rs|java)' | head -15)
+          $(cat diff_summary.txt | grep -E '\.(py|js|ts|jsx|tsx|c|cpp|h|go|rs|java)' | grep -v '/tests/' | head -15)
 
           Here's a diff of the changes:
           $(cat truncated_diff.txt)
