@@ -6,9 +6,10 @@ Provides a simple interface for creating, saving, and searching vector stores.
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from microvector.cache import vector_cache
+from microvector.partition import PartitionStore
 from microvector.utils import (
     EMBEDDING_MODEL,
     MODEL_CACHE_DIR,
@@ -25,198 +26,119 @@ class Client:
     Main client for microvector operations.
 
     Provides a high-level interface for managing vector stores with
-    automatic caching and persistence.
+    automatic caching and persistence. The similarity algorithm is set
+    at the client level and applies to all partitions created by this client.
 
     Args:
-        cache_models: Path to directory for caching embedding models.
-            Defaults to MODEL_CACHE_DIR
-        cache_vectors: Path to directory for caching vector stores.
-            Defaults to VECTOR_CACHE_DIR
+        model_cache: Path to directory for caching embedding models.
+            Defaults to MODEL_CACHE_DIR ("./.cached_models")
+        vector_cache: Path to directory for caching vector stores.
+            Defaults to VECTOR_CACHE_DIR ("./.vector_cache")
         embedding_model: HuggingFace embedding model name.
             Defaults to "avsolatorio/GIST-small-Embedding-v0"
+        search_algo: Similarity metric for all partitions created by this client.
+            One of: "cosine" (default), "dot", "euclidean", "derrida"
 
     Example:
-        >>> client = Client()
-        >>> client.save(
+        >>> client = Client(search_algo="cosine")
+        >>> store = client.save(
         ...     partition="my_data",
         ...     collection=[
         ...         {"text": "hello world", "metadata": {"source": "test"}},
         ...         {"text": "goodbye world", "metadata": {"source": "test"}},
         ...     ]
         ... )
-        >>> results = client.search(
-        ...     term="hello",
-        ...     partition="my_data",
-        ...     key="text",
-        ...     top_k=5
-        ... )
+        >>> results = store.search("hello", top_k=5)
     """
 
     def __init__(
         self,
-        cache_models: str = MODEL_CACHE_DIR,
-        cache_vectors: str = VECTOR_CACHE_DIR,
+        model_cache: str = MODEL_CACHE_DIR,
+        vector_cache: str = VECTOR_CACHE_DIR,
         embedding_model: str = EMBEDDING_MODEL,
+        search_algo: SimilarityMetrics = "cosine",
     ):
-        self.cache_models = cache_models
-        self.cache_vectors = cache_vectors
-        self.embedding_model = embedding_model
+        self.model_cache: str = model_cache
+        self.vector_cache: str = vector_cache
+        self.embedding_model: str = embedding_model
+        self.search_algo: SimilarityMetrics = search_algo
 
         # Ensure cache directories exist
-        Path(self.cache_models).mkdir(parents=True, exist_ok=True)
-        Path(self.cache_vectors).mkdir(parents=True, exist_ok=True)
+        Path(self.model_cache).mkdir(parents=True, exist_ok=True)
+        Path(self.vector_cache).mkdir(parents=True, exist_ok=True)
 
         logger.info("Initialized Client with model: %s", self.embedding_model)
-        logger.info("Model cache: %s", self.cache_models)
-        logger.info("Vector cache: %s", self.cache_vectors)
+        logger.info("Search algorithm: %s", self.search_algo)
+        logger.info("Model cache: %s", self.model_cache)
+        logger.info("Vector cache: %s", self.vector_cache)
 
     def save(
         self,
         partition: str,
         collection: list[dict[str, Any]],
         key: str = "text",
-        algo: SimilarityMetrics = "cosine",
+        cache: bool = False,
         append: bool = False,
-    ) -> dict[str, Any]:
+    ) -> PartitionStore:
         """
-        Save a collection to the vector store.
+        Save a collection to the vector store and return a PartitionStore.
 
-        Creates embeddings for the collection and persists them to disk.
+        Creates embeddings for the collection and optionally persists them to disk.
+        Uses the client's search_algo for all operations.
 
         Args:
             partition: Name of the partition to save to
             collection: List of documents to save. Each document should be a dict
                 containing at least the field specified by `key`
             key: The field name in each document to vectorize. Defaults to "text"
-            algo: Similarity metric to use. One of: "cosine", "dot", "euclidean", "derrida"
+            cache: If True, persist the vector store to disk.
+                   If False (default), create an in-memory only store.
             append: If True, adds new vectors to existing cache. If False (default),
                 replaces existing cache with new vectors
 
         Returns:
-            Dictionary with status information about the save operation
+            PartitionStore instance for this partition
 
         Example:
-        >>> client.save(
-        ...     partition="products",
-        ...     collection=[
-        ...         {"text": "laptop computer", "price": 999},
-        ...         {"text": "wireless mouse", "price": 29},
-        ...     ],
-        ...     key="text"
-        ... )
-        >>>
-        >>> # Append more documents to existing partition
-        >>> client.save(
-        ...     partition="products",
-        ...     collection=[
-        ...         {"text": "keyboard", "price": 79},
-        ...     ],
-        ...     key="text",
-        ...     append=True
-        ... )
+            >>> client = Client(search_algo="cosine")
+            >>> store = client.save(
+            ...     partition="products",
+            ...     collection=[
+            ...         {"text": "laptop computer", "price": 999},
+            ...         {"text": "wireless mouse", "price": 29},
+            ...     ],
+            ...     key="text"
+            ... )
+            >>> results = store.search("computer", top_k=5)
+            >>>
+            >>> # Append more documents to existing partition
+            >>> store = client.save(
+            ...     partition="products",
+            ...     collection=[{"text": "keyboard", "price": 79}],
+            ...     key="text",
+            ...     cache=True,
+            ...     append=True
+            ... )
         """
-        logger.info("Saving collection to partition: %s (append=%s)", partition, append)
-
-        # Use vector_cache to create and save the vector store
-        _ = vector_cache(
-            partition=partition,
-            key=key,
-            collection=collection,
-            cache=True,
-            model=self.embedding_model,
-            algo=algo,
-            cache_vectors=self.cache_vectors,
-            cache_models=self.cache_models,
-            append=append,
+        logger.info(
+            "Saving collection to partition: %s (cache=%s, append=%s)",
+            partition,
+            cache,
+            append,
         )
 
-        return {
-            "status": "success",
-            "partition": partition,
-            "documents_saved": len(collection),
-            "key": key,
-            "algorithm": algo,
-            "append": append,
-            "embedding_model": self.embedding_model,
-        }
-
-    def search(
-        self,
-        term: str,
-        partition: str,
-        key: str = "text",
-        top_k: int = 5,
-        collection: Optional[list[dict[str, Any]]] = None,
-        cache: bool = True,
-        algo: SimilarityMetrics = "cosine",
-        append: bool = False,
-    ) -> Optional[list[dict[str, Any]]]:
-        """
-        Search for similar documents in a vector store.
-
-        Can search existing cached vectors or create a new temporary vector store
-        from a provided collection.
-
-        Args:
-            term: Search query string
-            partition: Name of the partition to search
-            key: The field name in documents that was vectorized. Defaults to "text"
-            top_k: Number of top results to return (default: **5**)
-            collection: Optional collection to create a new vector store from.
-                If provided with cache=False, creates a temporary in-memory store
-            cache: Whether to persist the vector store to disk (default: **True**)
-            algo: Similarity metric to use. One of: "cosine" (default), "dot", "euclidean", "derrida"
-            append: If True, adds new vectors to existing cache. If False (default),
-                replaces existing cache with new vectors. Only relevant when providing
-                a collection with cache=True
-
-        Returns:
-            List of matching documents with similarity scores, or None if no results
-
-        Example:
-            >>> # Search existing cached vectors
-            >>> results = client.search(
-            ...     term="laptop",
-            ...     partition="products",
-            ...     key="text",
-            ...     top_k=3
-            ... )
-            >>>
-            >>> # Create and search temporary vector store
-            >>> results = client.search(
-            ...     term="laptop",
-            ...     partition="temp",
-            ...     key="text",
-            ...     collection=[{"text": "laptop computer"}, {"text": "desktop PC"}],
-            ...     cache=False
-            ... )
-        """
-        logger.info("Searching partition '%s' for term: '%s'", partition, term)
-
-        # Check for empty search term
-        if not term or term.strip() == "":
-            logger.error("Search term is empty")
-            return None
-
-        # Use vector_cache to get the querier function
-        querier = vector_cache(
+        # Use vector_cache to create and save the vector store
+        # Returns a PartitionStore instance
+        store = vector_cache(
             partition=partition,
             key=key,
             collection=collection,
             cache=cache,
             model=self.embedding_model,
-            algo=algo,
-            cache_vectors=self.cache_vectors,
-            cache_models=self.cache_models,
+            algo=self.search_algo,
+            cache_vectors=self.vector_cache,
+            cache_models=self.model_cache,
             append=append,
         )
 
-        if querier is None:
-            logger.error("Failed to create querier for partition '%s'", partition)
-            return None
-
-        # Execute the query
-        results = querier(term, top_k)
-        logger.info("Found %d results", len(results) if results else 0)
-
-        return results
+        return store
