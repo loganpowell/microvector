@@ -1,6 +1,7 @@
 import logging
 from typing import Any, List, Dict, Union, Optional
 from microvector.cache import vector_cache
+from microvector.partition import PartitionStore
 from microvector.utils import SimilarityMetrics
 
 # Get logger - let the library consumer configure logging
@@ -35,12 +36,13 @@ def vector_search(
     """
     if not isinstance(term, str):
         term = str(term)
-    # if the term is empty, return nono
+    # if the term is empty, return None
     if term == "":
         logger.error("Search term is empty")
         return None
-    # Perform the query using the vector store
-    querier = vector_cache(
+
+    # Get or create the PartitionStore
+    store: PartitionStore = vector_cache(
         partition=partition,
         key=key,
         collection=collection,
@@ -48,12 +50,7 @@ def vector_search(
         algo=algo,
         append=append,
     )
-    if querier is None:
-        logger.error(
-            "Vector store querier is None for partition '%s' and key '%s'.",
-            partition,
-            key,
-        )
-        return None
-    results: List[Dict[str, Any]] = querier(term, top_k)
+
+    # Use the PartitionStore's search method
+    results: List[Dict[str, Any]] = store.search(term, top_k)
     return results
