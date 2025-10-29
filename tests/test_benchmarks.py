@@ -323,28 +323,26 @@ class TestClientPerformance:
         """Benchmark: Complete save and search workflow with Client."""
         metrics = PerformanceMetrics("client_workflow_500_docs")
 
-        cache_models = shared_model_cache
-        cache_vectors = str(tmp_path / "vectors")
+        model_cache = shared_model_cache
+        vector_cache = str(tmp_path / "vectors")
 
         client = Client(
-            cache_models=cache_models,
-            cache_vectors=cache_vectors,
+            model_cache=model_cache,
+            vector_cache=vector_cache,
             embedding_model=EMBEDDING_MODEL,
         )
 
         metrics.start()
 
         # Save collection
-        client.save(
+        store = client.save(
             partition="benchmark_test",
             collection=benchmark_data_medium,
         )
 
         # Perform search
-        results = client.search(
+        results = store.search(
             term="document about topic",
-            partition="benchmark_test",
-            key="text",
             top_k=10,
         )
 
