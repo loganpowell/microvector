@@ -3,7 +3,7 @@ import os
 import logging
 from pathlib import Path
 import numpy as np
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 from numpy.typing import NDArray
 from microvector.embed import get_embeddings
 from microvector.utils import (
@@ -15,6 +15,7 @@ from microvector.utils import (
 )
 
 from microvector.store import Store
+from microvector.partition import PartitionStore
 
 # Use concrete float32 type instead of generic floating[Any] for better type checking
 FloatArray = NDArray[np.float32]
@@ -33,9 +34,9 @@ def vector_cache(
     cache_vectors: str = VECTOR_CACHE_DIR,
     cache_models: str = MODEL_CACHE_DIR,
     append: bool = False,
-) -> Callable[[str, int], list[dict[str, Any]]]:
+) -> PartitionStore:
     """
-    Wraps multiple cached vector stores with partitioned access
+    Creates or loads a partitioned vector store with caching support.
 
     Args:
         - partition (int | str) The partition of the vector store to query.
@@ -48,6 +49,9 @@ def vector_cache(
         - cache_models (str) Path to directory for caching embedding models.
         - append (bool) If True, adds new vectors to existing cache. If False (default),
             replaces existing cache with new vectors.
+
+    Returns:
+        PartitionStore: A partition-specific interface for vector operations.
     """
     # Load the vector store for the specified partition
     logger.info("Looking for partition: %s", partition)
@@ -136,13 +140,12 @@ def vector_cache(
             # No existing cache or append=False: create new temporary store
             db = create_store(formatted_collection)
 
-    def query(term: str, top_k: int = 5) -> list[dict[str, Any]]:
-        """
-        Query the vector store with the provided query
-        """
-        # Perform the query using the vector store
-        logger.info("Querying vector store for term: '%s' with top_k=%d", term, top_k)
-        results = db.query(term, top_k=top_k)
-        return results
-
-    return query  # Return the query function instead of yielding it
+    # Return a PartitionStore wrapping the loaded/created Store
+    cache_path = str(path) if cache else None
+    return PartitionStore(
+        store=db,
+        partition=partition,
+        key=key,
+        cache_path=cache_path,
+        algo=algo,
+    )
