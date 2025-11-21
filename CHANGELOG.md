@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.11](https://github.com/loganpowell/microvector/releases/tag/v0.3.11) - 2025-11-21
+
+### Fixed
+- Adjusted token limit in `truncate_diff.py` from 3500 to a more conservative 2500, ensuring smoother operation within LLM context windows like gh-models. No more overflow woes—your diffs just got a little leaner and a lot meaner!
+
 ## [v0.3.00](https://github.com/loganpowell/microvector/releases/tag/v0.3.00) - 2025-10-29
 
 ### Changed
